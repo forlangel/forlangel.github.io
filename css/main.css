@@ -400,7 +400,7 @@ audio, canvas, img, video {
 .echo blockquote {
     margin: 1.6em -50px;
     padding: 10px 45px;
-    border-left: 8px solid #399c9c;
+    border-left: 8px solid #257efa;
     border-right: 0;
     border-top: 1px solid #f0f0f0;
     border-bottom: 1px solid #f0f0f0;
@@ -409,7 +409,7 @@ audio, canvas, img, video {
 
 .echo blockquote.right {
     border-left: 0;
-    border-right: 8px solid #399c9c
+    border-right: 8px solid #257efa
 }
 
 .comments, .highlight {
@@ -418,7 +418,7 @@ audio, canvas, img, video {
 
 .highlight {
     overflow: auto;
-    color: #399c9c
+    color: #257efa
 }
 
 .highlight .gutter {
@@ -441,7 +441,7 @@ audio, canvas, img, video {
 }
 
 .highlight .title {
-    color: #399c9c
+    color: #257efa
 }
 
 .highlight .attribute, .highlight .css .class, .highlight .css .id, .highlight .css .pseudo, .highlight .html .doctype, .highlight .regexp, .highlight .ruby .constant, .highlight .tag, .highlight .variable, .highlight .xml .doctype, .highlight .xml .pi, .highlight .xml .tag .title {
@@ -592,7 +592,7 @@ audio, canvas, img, video {
 
 ::-webkit-scrollbar-thumb {
     -webkit-box-shadow: inset 0 0 8px rgba(0, 0, 0, .3);
-    background-color: #399c9c
+    background-color: #257efa
 }
 
 .right p {
@@ -616,7 +616,7 @@ audio, canvas, img, video {
 
 .reward .btn-reward {
     padding: 10px 20px;
-    background-color: #399c9c;
+    background-color: #257efa;
     color: #fff;
     transition: all .3s
 }
