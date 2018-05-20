@@ -1,0 +1,2709 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>I am Oliver</title>
+  
+  <link href="/atom.xml" rel="self"/>
+  
+  <link href="http://ochukai.me/"/>
+  <updated>2017-09-06T03:32:37.914Z</updated>
+  <id>http://ochukai.me/</id>
+  
+  <author>
+    <name>Oliver Wang</name>
+    
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>SVN 的备份与还原</title>
+    <link href="http://ochukai.me/svn-backup-and-restore/"/>
+    <id>http://ochukai.me/svn-backup-and-restore/</id>
+    <published>2017-09-06T03:09:56.000Z</published>
+    <updated>2017-09-06T03:32:37.914Z</updated>
+    
+    <content type="html"><![CDATA[<p>其实很早之前就做了这个，但是最近公司要搬家所以又重新整理了一下 准备拿出来用上的，不过要用的那一天内网突然断了，所以也没有正式用，但是测试表明，十几个 svn 库，总体积三个多 g 备份的时候，只需要五分钟，超级快，保存了所有的提交记录。</p><figure class="highlight bat"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+<span class="line">29</span>
+<span class="line">30</span>
+<span class="line">31</span>
+<span class="line">32</span>
+<span class="line">33</span>
+<span class="line">34</span>
+<span class="line">35</span>
+<span class="line">36</span>
+<span class="line">37</span>
+<span class="line">38</span>
+<span class="line">39</span>
+<span class="line">40</span>
+<span class="line">41</span>
+<span class="line">42</span>
+<span class="line">43</span>
+<span class="line">44</span>
+<span class="line">45</span>
+<span class="line">46</span>
+<span class="line">47</span>
+<span class="line">48</span>
+<span class="line">49</span>
+<span class="line">50</span>
+<span class="line">51</span>
+<span class="line">52</span>
+<span class="line">53</span>
+<span class="line">54</span>
+<span class="line">55</span>
+<span class="line">56</span>
+<span class="line">57</span>
+</pre></td><td class="code"><pre><span class="line">@<span class="built_in">echo</span> off</span>
+<span class="line"><span class="built_in">title</span> SVN Backup by oli</span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line"></span>
+<span class="line"><span class="built_in">set</span> SVN_HOME="C:\Program Files\VisualSVN Server"</span>
+<span class="line">:: 设置根目录</span>
+<span class="line"><span class="built_in">set</span> SVN_ROOT=C:\Repositories</span>
+<span class="line">:: 设置要备份到的位置</span>
+<span class="line"><span class="built_in">set</span> SVN_BACKUP_ROOT=C:\Backup</span>
+<span class="line"></span>
+<span class="line"><span class="built_in">set</span> TIME_DIR=<span class="variable">%date:~,4%</span><span class="variable">%date:~5,2%</span><span class="variable">%date:~8,2%</span>_<span class="variable">%time:~,2%</span><span class="variable">%time:~3,2%</span><span class="variable">%time:~6,2%</span><span class="variable">%time:~9,2%</span></span>
+<span class="line"><span class="built_in">set</span> BACKUP_DIRECTORY=<span class="variable">%SVN_BACKUP_ROOT%</span>\<span class="variable">%TIME_DIR%</span></span>
+<span class="line"><span class="built_in">set</span> LOG=<span class="variable">%BACKUP_DIRECTORY%</span>\backup.log</span>
+<span class="line"></span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line"></span>
+<span class="line"><span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exist</span> <span class="variable">%SVN_HOME%</span> <span class="keyword">goto</span> error</span>
+<span class="line"></span>
+<span class="line"><span class="keyword">goto</span> <span class="built_in">start</span></span>
+<span class="line"></span>
+<span class="line">:<span class="built_in">start</span></span>
+<span class="line"><span class="keyword">for</span> /r <span class="variable">%SVN_BACKUP_ROOT%</span> <span class="variable">%%I</span> <span class="keyword">in</span> (backup.log) <span class="keyword">do</span> (</span>
+<span class="line">  <span class="keyword">if</span> <span class="variable">%%~</span>zI <span class="keyword">GEQ</span> <span class="number">1048576</span> <span class="built_in">ren</span> <span class="variable">%LOG%</span> backup_<span class="variable">%TIME%</span>.log</span>
+<span class="line">)</span>
+<span class="line"></span>
+<span class="line"><span class="built_in">mkdir</span> <span class="variable">%BACKUP_DIRECTORY%</span></span>
+<span class="line">@<span class="built_in">echo</span> [info] create new directory: <span class="variable">%BACKUP_DIRECTORY%</span></span>
+<span class="line"></span>
+<span class="line">@<span class="built_in">echo</span> [info] <span class="variable">%date:~,10%</span> <span class="variable">%time:~,2%</span>:<span class="variable">%time:~3,2%</span>:<span class="variable">%time:~6,2%</span> create backup category: <span class="variable">%BACKUP_DIRECTORY%</span> &gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span class="keyword">for</span> /d <span class="variable">%%i</span> <span class="keyword">in</span> (<span class="variable">%SVN_ROOT%</span>\*) <span class="keyword">do</span> (</span>
+<span class="line">  @<span class="built_in">echo</span> [info] backup <span class="variable">%%~</span>ni &gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line">  @<span class="built_in">echo</span> [info] backup <span class="variable">%%~</span>ni</span>
+<span class="line"></span>
+<span class="line">  :: --incremental</span>
+<span class="line">  <span class="variable">%SVN_HOME%</span>\bin\svnadmin dump <span class="variable">%SVN_ROOT%</span>\<span class="variable">%%~</span>ni &gt; <span class="variable">%BACKUP_DIRECTORY%</span>\<span class="variable">%%~</span>ni.dmp <span class="number">2</span>&gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line">)</span>
+<span class="line"></span>
+<span class="line">@<span class="built_in">echo</span> [info] <span class="variable">%date:~,10%</span> <span class="variable">%time:~,2%</span>:<span class="variable">%time:~3,2%</span>:<span class="variable">%time:~6,2%</span> finish: <span class="variable">%errorlevel%</span></span>
+<span class="line">@<span class="built_in">echo</span> [info] <span class="variable">%date:~,10%</span> <span class="variable">%time:~,2%</span>:<span class="variable">%time:~3,2%</span>:<span class="variable">%time:~6,2%</span> finish: <span class="variable">%errorlevel%</span> &gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line"></span>
+<span class="line">:error</span>
+<span class="line"><span class="built_in">echo</span> [error] <span class="variable">%date:~,10%</span> <span class="variable">%time:~,2%</span>:<span class="variable">%time:~3,2%</span>:<span class="variable">%time:~6,2%</span> directory <span class="keyword">not</span> <span class="keyword">exist</span>，please check: <span class="variable">%SVN_HOME%</span>&gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line"><span class="keyword">goto</span> end</span>
+<span class="line"></span>
+<span class="line">:end</span>
+<span class="line">@<span class="built_in">echo</span>. &gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line">:: <span class="keyword">exit</span></span>
+<span class="line"></span>
+<span class="line"><span class="built_in">PAUSE</span></span>
+</pre></td></tr></table></figure><p>下面这一段是还原，就是把备份好的 dmp 文件，还原成文件夹。</p><p>还原的时候要根据自己是不是全新还原来考虑是否注释掉代码中的那一行~</p><figure class="highlight bat"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+<span class="line">29</span>
+<span class="line">30</span>
+<span class="line">31</span>
+<span class="line">32</span>
+<span class="line">33</span>
+<span class="line">34</span>
+<span class="line">35</span>
+<span class="line">36</span>
+<span class="line">37</span>
+<span class="line">38</span>
+<span class="line">39</span>
+<span class="line">40</span>
+<span class="line">41</span>
+<span class="line">42</span>
+<span class="line">43</span>
+<span class="line">44</span>
+<span class="line">45</span>
+<span class="line">46</span>
+<span class="line">47</span>
+<span class="line">48</span>
+<span class="line">49</span>
+</pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> off</span>
+<span class="line"></span>
+<span class="line"><span class="built_in">title</span> SVN Backup by oli</span>
+<span class="line"></span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line"></span>
+<span class="line"><span class="built_in">set</span> SVN_HOME="C:\Program Files\VisualSVN Server"</span>
+<span class="line"></span>
+<span class="line">:: 要还原到的目录</span>
+<span class="line"><span class="built_in">set</span> SVN_ROOT=C:\testLoad</span>
+<span class="line"></span>
+<span class="line">:: 之前备份的目录</span>
+<span class="line"><span class="built_in">set</span> SVN_BACKUP_DIR=C:\Backup\<span class="number">20170831</span>_11282822</span>
+<span class="line"></span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line">:: ---------------------------------------</span>
+<span class="line"></span>
+<span class="line"></span>
+<span class="line"><span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exist</span> <span class="variable">%SVN_HOME%</span> <span class="keyword">goto</span> error</span>
+<span class="line"></span>
+<span class="line"><span class="keyword">goto</span> <span class="built_in">start</span></span>
+<span class="line"></span>
+<span class="line">:<span class="built_in">start</span></span>
+<span class="line"><span class="keyword">for</span> <span class="variable">%%i</span> <span class="keyword">in</span> (<span class="variable">%SVN_BACKUP_DIR%</span>\*.dmp) <span class="keyword">do</span> (</span>
+<span class="line">  @<span class="built_in">echo</span> [info] backup <span class="variable">%%~</span>ni &gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line">  @<span class="built_in">echo</span> [info] backup <span class="variable">%%~</span>ni</span>
+<span class="line"></span>
+<span class="line">  :: 目录不存在就新建一个否则会报错的，</span>
+<span class="line">  :: 如果全新还原这个目录必须新建，否则可以注释这一行</span>
+<span class="line">  <span class="variable">%SVN_HOME%</span>\bin\svnadmin create <span class="variable">%SVN_ROOT%</span>\<span class="variable">%%~</span>ni</span>
+<span class="line">  :: --incremental</span>
+<span class="line">  <span class="variable">%SVN_HOME%</span>\bin\svnadmin load <span class="variable">%SVN_ROOT%</span>\<span class="variable">%%~</span>ni &lt; <span class="variable">%SVN_BACKUP_DIR%</span>\<span class="variable">%%~</span>ni.dmp</span>
+<span class="line">)</span>
+<span class="line"></span>
+<span class="line">@<span class="built_in">echo</span> [info] <span class="variable">%date:~,10%</span> <span class="variable">%time:~,2%</span>:<span class="variable">%time:~3,2%</span>:<span class="variable">%time:~6,2%</span> finish: <span class="variable">%errorlevel%</span></span>
+<span class="line">@<span class="built_in">echo</span> [info] <span class="variable">%date:~,10%</span> <span class="variable">%time:~,2%</span>:<span class="variable">%time:~3,2%</span>:<span class="variable">%time:~6,2%</span> finish: <span class="variable">%errorlevel%</span> &gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line"></span>
+<span class="line">:error</span>
+<span class="line"><span class="built_in">echo</span> [error] <span class="variable">%date:~,10%</span> <span class="variable">%time:~,2%</span>:<span class="variable">%time:~3,2%</span>:<span class="variable">%time:~6,2%</span> SVNADMIN <span class="keyword">not</span> <span class="keyword">exist</span>, lease check: <span class="variable">%SVN_HOME%</span>&gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line"><span class="keyword">goto</span> end</span>
+<span class="line"></span>
+<span class="line">:end</span>
+<span class="line">@<span class="built_in">echo</span>. &gt;&gt;<span class="variable">%LOG%</span></span>
+<span class="line">:: <span class="keyword">exit</span></span>
+<span class="line"></span>
+<span class="line"><span class="built_in">PAUSE</span></span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;其实很早之前就做了这个，但是最近公司要搬家所以又重新整理了一下 准备拿出来用上的，不过要用的那一天内网突然断了，所以也没有正式用，但是测试表明，十几个 svn 库，总体积三个多 g 备份的时候，只需要五分钟，超级快，保存了所有的提交记录。&lt;/p&gt;&lt;figure class=
+    
+    </summary>
+    
+    
+      <category term="svn" scheme="http://ochukai.me/tags/svn/"/>
+    
+      <category term="svn backup" scheme="http://ochukai.me/tags/svn-backup/"/>
+    
+      <category term="svn 备份" scheme="http://ochukai.me/tags/svn-%E5%A4%87%E4%BB%BD/"/>
+    
+      <category term="svn 还原" scheme="http://ochukai.me/tags/svn-%E8%BF%98%E5%8E%9F/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>flex shrink 的用处</title>
+    <link href="http://ochukai.me/flex-shrink/"/>
+    <id>http://ochukai.me/flex-shrink/</id>
+    <published>2017-08-08T07:38:17.000Z</published>
+    <updated>2017-08-08T08:02:33.864Z</updated>
+    
+    <content type="html"><![CDATA[<p>flex grow 和 shrink 这两兄弟我经常遇见，不过目前为止，grow 还没有帮过我什么忙， shrink 很不错，帮过我几次了。</p><figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line"><span class="selector-tag">flex-shrink</span>: 0</span>
+</pre></td></tr></table></figure><p>每当别的元素位置不够了，要来挤压我的空间时， flex-shrink 就会帮我把别的元素挡在门外，是一个很有原则的人。</p><blockquote><p>flex-shrink 定义收缩比率。不允许负值</p></blockquote>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;flex grow 和 shrink 这两兄弟我经常遇见，不过目前为止，grow 还没有帮过我什么忙， shrink 很不错，帮过我几次了。&lt;/p&gt;&lt;figure class=&quot;highlight css&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pr
+    
+    </summary>
+    
+    
+      <category term="flex" scheme="http://ochukai.me/tags/flex/"/>
+    
+      <category term="flex shrink" scheme="http://ochukai.me/tags/flex-shrink/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Django 项目部署在 nginx + uwsgi</title>
+    <link href="http://ochukai.me/nginx-uwsgi-django/"/>
+    <id>http://ochukai.me/nginx-uwsgi-django/</id>
+    <published>2017-06-27T06:28:31.000Z</published>
+    <updated>2017-06-27T07:36:11.272Z</updated>
+    
+    <content type="html"><![CDATA[<p>好久不写博客了，最近一直在忙一个私活，一个问卷类的项目，用 django 写的，说实话，之前除了在公司厘米用，都没有用过 python，还好我有一些好同事，有问题可以直接问，方便了很多。</p><p>为了避免长时间不写文章的尴尬，我急匆匆的新键了一个 md，开始写。</p><p>一般来说，本地运行 django 项目是很简单，<br></p><figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">python manage.py runserver</span>
+</pre></td></tr></table></figure><p></p><h2 id="UWSGI"><a href="#UWSGI" class="headerlink" title="UWSGI"></a>UWSGI</h2><p>总感觉这个单词全部大写的话，很别扭，使用 uwsgi 启动项目的话也不是太难，</p><figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment"># docon.ini</span></span>
+<span class="line"><span class="comment"># uwsgi abc.ini</span></span>
+<span class="line"><span class="comment"># uwsgi --reload /tmp/***.pid</span></span>
+<span class="line"><span class="comment"># uwsgi --stop /tmp/***.pid</span></span>
+<span class="line"><span class="section"></span>
+<span class="line">[uwsgi]</span></span>
+<span class="line"><span class="attr">chdir</span>=/home/docon</span>
+<span class="line"><span class="attr">module</span>=docon.wsgi:application</span>
+<span class="line"><span class="attr">master</span>=<span class="literal">True</span></span>
+<span class="line"><span class="attr">processes</span>=<span class="number">2</span></span>
+<span class="line"><span class="attr">threads</span>=<span class="number">2</span></span>
+<span class="line"><span class="attr">socket</span>=:<span class="number">8000</span></span>
+<span class="line"><span class="comment"># http=:80</span></span>
+<span class="line"><span class="attr">daemonize</span>=/var/log/uwsgi-docon.log</span>
+<span class="line"><span class="attr">pidfile</span>=/tmp/docon.pid</span>
+<span class="line"><span class="attr">vacuum</span>=<span class="literal">True</span></span>
+</pre></td></tr></table></figure><p>有一点要注意的就是， 如果单独使用 uwsgi，需要写 <strong>http=:80</strong>, 如果配合 nginx 的话，就改成 <strong>socket=:8000</strong>, 8000 随便写。</p><h2 id="NGINX"><a href="#NGINX" class="headerlink" title="NGINX"></a>NGINX</h2><p>一般初装 ubuntu 的 nginx 之后，有一个默认的配置，在 <strong>/etc/nginx/sites-enabled/default</strong> 这个位置，需要修改成自己项目的配置。</p><figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">vi /etc/nginx/sites-enabled/default</span>
+</pre></td></tr></table></figure><p>然后修改成自己的配置</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+</pre></td><td class="code"><pre><span class="line">server &#123;</span>
+<span class="line">  listen 80;</span>
+<span class="line">  server_name ***.com;</span>
+<span class="line">  charset utf-8;</span>
+<span class="line"></span>
+<span class="line">  client_max_body_size 75M;</span>
+<span class="line"></span>
+<span class="line">  location / &#123;</span>
+<span class="line">    include uwsgi_params;</span>
+<span class="line">    uwsgi_pass localhost:8000;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  location /static/ &#123;</span>
+<span class="line">    alias /var/www/html/docon/static/;</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><p>重启 nginx</p><figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">/etc/init.d/nginx restart</span>
+</pre></td></tr></table></figure><p>哦，对了，在启动之前，要把静态文件，放到上面配置的 <strong>/var/www/html/docon/static</strong> 中去，这个路径是自己配置的，随便写吧，首先要在项目的 setting.py 里面设置 <strong>STATIC_ROOT</strong>,</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">STATIC_ROOT = /var/www/html/docon/static</span>
+</pre></td></tr></table></figure><p>然后在执行下面的命令，把所有的静态文件转移过去。</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">python manage.py collectstatic</span>
+</pre></td></tr></table></figure><p>如果启动的过程中报错了, 查看占用的端口, 然后 kill 就好了。</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+</pre></td><td class="code"><pre><span class="line">netstat -ntpl</span>
+<span class="line">kill -9 ***</span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;好久不写博客了，最近一直在忙一个私活，一个问卷类的项目，用 django 写的，说实话，之前除了在公司厘米用，都没有用过 python，还好我有一些好同事，有问题可以直接问，方便了很多。&lt;/p&gt;&lt;p&gt;为了避免长时间不写文章的尴尬，我急匆匆的新键了一个 md，开始写。&lt;/p&gt;
+    
+    </summary>
+    
+    
+      <category term="django" scheme="http://ochukai.me/tags/django/"/>
+    
+      <category term="nginx" scheme="http://ochukai.me/tags/nginx/"/>
+    
+      <category term="uwsgi" scheme="http://ochukai.me/tags/uwsgi/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>直播写代码要去那个平台呢?</title>
+    <link href="http://ochukai.me/live-code/"/>
+    <id>http://ochukai.me/live-code/</id>
+    <published>2017-06-01T10:51:49.000Z</published>
+    <updated>2017-06-01T10:53:18.047Z</updated>
+    
+    <content type="html"><![CDATA[<p>现在我在 <a href="http://www.huya.com/ochukai" target="_blank" rel="external">虎牙-代码痴汉umi</a>, 有谁推荐新的直播平台吗 ?</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;现在我在 &lt;a href=&quot;http://www.huya.com/ochukai&quot; target=&quot;_blank&quot; rel=&quot;external&quot;&gt;虎牙-代码痴汉umi&lt;/a&gt;, 有谁推荐新的直播平台吗 ?&lt;/p&gt;
+    
+    </summary>
+    
+    
+      <category term="直播" scheme="http://ochukai.me/tags/%E7%9B%B4%E6%92%AD/"/>
+    
+      <category term="直播写代码" scheme="http://ochukai.me/tags/%E7%9B%B4%E6%92%AD%E5%86%99%E4%BB%A3%E7%A0%81/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>给 Git Bash 设置好看的配色~ 😜</title>
+    <link href="http://ochukai.me/beautiful-color-git-bash/"/>
+    <id>http://ochukai.me/beautiful-color-git-bash/</id>
+    <published>2017-05-31T22:06:06.000Z</published>
+    <updated>2017-06-01T09:47:33.139Z</updated>
+    
+    <content type="html"><![CDATA[<p>window 上面的命令行一直都非常丑陋 (看我用词多么强烈)~</p><p>今天上午终于因为看 Git Bash 配色而双眼变得模糊了, 于是上网搜了一下有没有结局方案, 然后就发现了这个 <a href="https://github.com/mavnn/mintty-colors-solarized" target="_blank" rel="external">github/mintty-colors-solarized</a>, 但这个项目是好几年前的了, 我还是怀着试试看的态度尝试了一下.</p><p>我发现了, 干程序员别的可能不行, 但是尝试的能力还是有的, 经常为了找一个新的框架, 或者要写一个组件而去把所有相关的项目全看一边, 然后才发现不行~</p><p>但是今天老天并没有调戏我, 先说一下修改的过程吧~ 在 Git Bash 里面输入,</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+</pre></td><td class="code"><pre><span class="line">cd ~</span>
+<span class="line">vi .minttyrc</span>
+</pre></td></tr></table></figure><p>开始编辑它的配置文件, 不妨输入这些东西, 这些配色就是我从上面的项目里面找来的~</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+</pre></td><td class="code"><pre><span class="line">...</span>
+<span class="line">Font=Consolas</span>
+<span class="line"></span>
+<span class="line"># 后面是颜色的配置</span>
+<span class="line">ForegroundColour=131,148,150</span>
+<span class="line">BackgroundColour=0,43,54</span>
+<span class="line">CursorColour=220,50,47</span>
+<span class="line"></span>
+<span class="line">Black=7,54,66</span>
+<span class="line">BoldBlack=0,43,54</span>
+<span class="line">Red=220,50,47</span>
+<span class="line">BoldRed=203,75,22</span>
+<span class="line">Green=133,153,0</span>
+<span class="line">BoldGreen=88,110,117</span>
+<span class="line">Yellow=181,137,0</span>
+<span class="line">BoldYellow=101,123,131</span>
+<span class="line">Blue=38,139,210</span>
+<span class="line">BoldBlue=131,148,150</span>
+<span class="line">Magenta=211,54,130</span>
+<span class="line">BoldMagenta=108,113,196</span>
+<span class="line">Cyan=42,161,152</span>
+<span class="line">BoldCyan=147,161,161</span>
+<span class="line">White=238,232,213</span>
+<span class="line">BoldWhite=253,246,227</span>
+</pre></td></tr></table></figure><p>保存之后, 重启一下, 效果就像下面这样了~</p><p><img src="/images/terminal.png" alt="非选中状态"></p><p><img src="/images/terminal-selected.png" alt="选中状态"></p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;window 上面的命令行一直都非常丑陋 (看我用词多么强烈)~&lt;/p&gt;&lt;p&gt;今天上午终于因为看 Git Bash 配色而双眼变得模糊了, 于是上网搜了一下有没有结局方案, 然后就发现了这个 &lt;a href=&quot;https://github.com/mavnn/mintty-
+    
+    </summary>
+    
+    
+      <category term="git bash" scheme="http://ochukai.me/tags/git-bash/"/>
+    
+      <category term="terminal" scheme="http://ochukai.me/tags/terminal/"/>
+    
+      <category term="配色" scheme="http://ochukai.me/tags/%E9%85%8D%E8%89%B2/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>写了一个 Vue 的图片预览插件~😜</title>
+    <link href="http://ochukai.me/vue-image-preview/"/>
+    <id>http://ochukai.me/vue-image-preview/</id>
+    <published>2017-05-31T22:01:01.000Z</published>
+    <updated>2017-06-05T10:09:03.557Z</updated>
+    
+    <content type="html"><![CDATA[<p>最近的项目里面需要一个图片点击放大预览的插件~ 项目是 vue 写的 SPA ~</p><p>找了好久，没有现成的，有一个，但是写的我很不喜欢，需要手动传入图片地址，宽度和高度，都这样了，还写什么程序~</p><p>然后我打算自己写一个~</p><h2 id="思路"><a href="#思路" class="headerlink" title="思路"></a>思路</h2><p>基本思路的话，就是点击图片的时候，产生一个遮罩层（或者遮罩层本来就有），然后在遮罩层添加一个图片，居中什么的样式到时随便了。点击事件很简单， <code>@click</code> 就好了，点击图片之后可以获取到图片的路径，因为点击的是已经显示出来的图片，所以当前图片的 meta 信息肯定包含了该图片的长和宽。</p><p>生成一个遮罩层也很简单，然后根据图片的长宽和屏幕的长宽（或者浏览窗口的大小）可以计算图片的居中位置。</p><p>然后添加到 body 上面就好了，但是添加的话，因为 vue 有自己的生命周期，<code>document.body.appendChild()</code> 的话事件都不能用 vue 的了，于是如果 <strong>append 一个 vue 的插件到 dom </strong>算是第一个问题。</p><p>简单的思路就这样，只要实现了动态添加 vue 组件到 body，那么这个插件就可以实现了。</p><h2 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h2><p>我先去看了一个 element-ui 的代码，好复杂，有一个很大的 mixin， 看来看去没明白，后来我想起之前看到的那个图片预览的插件，<a href="https://github.com/xiecg/vue-fancybox" target="_blank" rel="external">github/vue-fancybox</a>，顺便帮作者宣传一下吧，虽然不符合我的价值观~</p><p>这个插件有一个插入的操作，大概是这么写的，</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+</pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> FancyBoxConstructor = Vue.extend(fancyBox);</span>
+<span class="line"><span class="keyword">let</span> instance = <span class="keyword">new</span> FancyBoxConstructor(&#123;</span>
+<span class="line">  <span class="attr">el</span>: <span class="built_in">document</span>.createElement(<span class="string">'div'</span>)</span>
+<span class="line">&#125;);</span>
+<span class="line"></span>
+<span class="line"><span class="built_in">document</span>.body.appendChild(instance.$el);</span>
+</pre></td></tr></table></figure><p>他还写了好多别的代码，但是主要逻辑应该是这个，首先初始化组件之后，再 append 到 body，不错。</p><p>然后我就借用了，</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+</pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> ImagePreviewConstructor = Vue.extend(ImagePreview);</span>
+<span class="line"></span>
+<span class="line"><span class="keyword">export</span> <span class="keyword">default</span> (el) =&gt; &#123;</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">let</span> instance = <span class="keyword">new</span> ImagePreviewConstructor(&#123;</span>
+<span class="line">    <span class="attr">el</span>: <span class="built_in">document</span>.createElement(<span class="string">'div'</span>),</span>
+<span class="line">    <span class="attr">data</span>: &#123;</span>
+<span class="line">      <span class="attr">img</span>: el,</span>
+<span class="line">      <span class="attr">imgSrc</span>: el.src</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;);</span>
+<span class="line"></span>
+<span class="line">  <span class="built_in">document</span>.body.appendChild(instance.$el);</span>
+<span class="line"></span>
+<span class="line">&#125;;</span>
+</pre></td></tr></table></figure><p>初始化的时候顺便传入 <strong>props</strong>, 这个文件算是组件的入口文件了，调用这个组件的方式是这样的：</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+</pre></td><td class="code"><pre><span class="line">handleContentClick(e) &#123;</span>
+<span class="line">  <span class="keyword">const</span> el = e.target;</span>
+<span class="line">  <span class="keyword">if</span> (el.localName === <span class="string">'img'</span>) &#123;</span>
+<span class="line">    e.preventDefault();</span>
+<span class="line"></span>
+<span class="line">    <span class="keyword">const</span> imageSrc = el.src;</span>
+<span class="line">    <span class="keyword">if</span> (imageSrc) &#123;</span>
+<span class="line">      showImagePreview(el);</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">return</span> <span class="literal">false</span>;</span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><p>这样的话，组件便可以开始了，或者说已经结束了，因为只要在 template 里面写个 div， 再写个 img 就好了， 剩下的就是样式问题：</p><figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+</pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">template</span>&gt;</span></span>
+<span class="line">  <span class="tag">&lt;<span class="name">transition</span> <span class="attr">name</span>=<span class="string">"image-fade"</span>&gt;</span></span>
+<span class="line">    <span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"image-preview__wrapper"</span></span>
+<span class="line">         <span class="attr">style</span>=<span class="string">"z-index: 2003;"</span></span>
+<span class="line">         <span class="attr">ref</span>=<span class="string">"wrapper"</span></span>
+<span class="line">         @<span class="attr">click.self</span>=<span class="string">"handleClick"</span></span>
+<span class="line">         @<span class="attr">mousewheel.stop</span>=<span class="string">"handleMouseWheel"</span></span>
+<span class="line">         <span class="attr">v-if</span>=<span class="string">"imgSrc"</span>&gt;</span></span>
+<span class="line">      <span class="tag">&lt;<span class="name">img</span> <span class="attr">:src</span>=<span class="string">"imgSrc"</span>/&gt;</span></span>
+<span class="line"></span>
+<span class="line">      <span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"toolbar"</span>&gt;</span></span>
+<span class="line">        <span class="tag">&lt;<span class="name">el-button</span> <span class="attr">icon</span>=<span class="string">"minus"</span> @<span class="attr">click</span>=<span class="string">"handleZoomIn"</span>&gt;</span>缩小<span class="tag">&lt;/<span class="name">el-button</span>&gt;</span></span>
+<span class="line">        <span class="tag">&lt;<span class="name">el-button</span> <span class="attr">icon</span>=<span class="string">"plus"</span> @<span class="attr">click</span>=<span class="string">"handleZoomOut"</span>&gt;</span>放大<span class="tag">&lt;/<span class="name">el-button</span>&gt;</span></span>
+<span class="line">        <span class="tag">&lt;<span class="name">el-button</span> <span class="attr">icon</span>=<span class="string">"close"</span> @<span class="attr">click</span>=<span class="string">"handleClose"</span>&gt;</span>关闭<span class="tag">&lt;/<span class="name">el-button</span>&gt;</span></span>
+<span class="line">      <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span>
+<span class="line">    <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span>
+<span class="line">  <span class="tag">&lt;/<span class="name">transition</span>&gt;</span></span>
+<span class="line"><span class="tag">&lt;/<span class="name">template</span>&gt;</span></span>
+</pre></td></tr></table></figure><p>这里我加了一个 <code>transition</code> 标签，是 vue 里面很方便写出入场动画的标签，文档在这里<a href="http://cn.vuejs.org/v2/guide/transitions.html" target="_blank" rel="external">vue/transition</a>, 里面就是 div 和 img，或许这样的结构有点简陋，但是能用啊，而且公司不给太多时间（咦，这个心态不对呀~）</p><p>组件 mounted 之后，要初始化图片的位置和事件，</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+</pre></td><td class="code"><pre><span class="line">mounted() &#123;</span>
+<span class="line">  <span class="built_in">document</span>.querySelector(<span class="string">'html'</span>).style.overflow = <span class="string">'hidden'</span>;</span>
+<span class="line"></span>
+<span class="line">  Vue.nextTick(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span>
+<span class="line">    <span class="keyword">this</span>.initImagePosition();</span>
+<span class="line">    <span class="keyword">this</span>.initHammer();</span>
+<span class="line">  &#125;);</span>
+<span class="line">&#125;,</span>
+</pre></td></tr></table></figure><p>哦对了，图片的手势处理，拖拽我用的 hammerjs 来做的。</p><p>然后就是 <strong>handleClick</strong>，点击图片之后的操作了，加了 <code>.self</code> 是为了事件只在 div 标签触发，用过 vue 的人都知道，好用~</p><p>效果是这样的~</p><p><img src="/images/vue-image-preview.jpg" alt=""></p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;最近的项目里面需要一个图片点击放大预览的插件~ 项目是 vue 写的 SPA ~&lt;/p&gt;&lt;p&gt;找了好久，没有现成的，有一个，但是写的我很不喜欢，需要手动传入图片地址，宽度和高度，都这样了，还写什么程序~&lt;/p&gt;&lt;p&gt;然后我打算自己写一个~&lt;/p&gt;&lt;h2 id=&quot;思路&quot;&gt;&lt;a
+    
+    </summary>
+    
+    
+      <category term="vue" scheme="http://ochukai.me/tags/vue/"/>
+    
+      <category term="image-preview" scheme="http://ochukai.me/tags/image-preview/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>VUE 总结一下~</title>
+    <link href="http://ochukai.me/vue-summary/"/>
+    <id>http://ochukai.me/vue-summary/</id>
+    <published>2017-05-24T03:27:55.000Z</published>
+    <updated>2017-06-01T10:49:07.666Z</updated>
+    
+    <content type="html"><![CDATA[<p>最近开始接触 vue, 写了一个算是前端小论坛的公司内部项目, 算是一个知识库, 可添加一些常见的问题供别人查阅~</p><p>现在做个总结吧, 项目写完一个多星期, 现在想想差不多都忘记了~ 真是老了~</p><h2 id="生命周期"><a href="#生命周期" class="headerlink" title="生命周期"></a>生命周期</h2><p><img src="/images/vue-lifecycle.png" alt=""></p><p>其中 created 和 mounted 的顺序要确定好~ 比较重要的就像下面这三个吧, 其他的像是 <code>updated</code>, <code>beforeUpdate</code> 我几乎没有用过, 暂时不说~</p><h3 id="created"><a href="#created" class="headerlink" title="created"></a>created</h3><p>实例已经创建完成之后被调用。在这一步，实例已完成以下的配置：数据观测(data observer)，属性和方法的运算， watch/event 事件回调。然而，挂载阶段还没开始，$el 属性目前不可见。</p><h3 id="mounted"><a href="#mounted" class="headerlink" title="mounted"></a>mounted</h3><p>el 被新创建的 vm.$el 替换，并挂载到实例上去之后调用该钩子。<br>这个时候可以获取到 template 里面的标签元素了, 如果要修改大小样式之类的在这里面写~</p><h3 id="destroyed"><a href="#destroyed" class="headerlink" title="destroyed"></a>destroyed</h3><p>Vue 实例销毁后调用。调用后，Vue 实例指示的所有东西都会解绑定，所有的事件监听器会被移除，所有的子实例也会被销毁。 该钩子在服务器端渲染期间不被调用。</p><h2 id="动画"><a href="#动画" class="headerlink" title="动画"></a>动画</h2><p>使用过 vue 的 transition 标签之后最大的感慨便是, 做动画比 react 简单好多啊, 可能是我之前用 react 并没有写过动画的缘故吧, 但不可否认 vue 的动画很简单~</p><p>我之前写的一个小组件</p><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+</pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">template</span>&gt;</span></span>
+<span class="line">  <span class="tag">&lt;<span class="name">transition</span> <span class="attr">name</span>=<span class="string">"back-top-fade"</span>&gt;</span></span>
+<span class="line">    <span class="tag">&lt;<span class="name">div</span> <span class="attr">v-if</span>=<span class="string">"show"</span> <span class="attr">class</span>=<span class="string">"back-to-top hidden-xs"</span> @<span class="attr">click</span>=<span class="string">"handleBackTopClick"</span>&gt;</span></span>
+<span class="line">      <span class="tag">&lt;<span class="name">i</span> <span class="attr">class</span>=<span class="string">"el-icon-caret-top"</span>&gt;</span><span class="tag">&lt;/<span class="name">i</span>&gt;</span></span>
+<span class="line">    <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span>
+<span class="line">  <span class="tag">&lt;/<span class="name">transition</span>&gt;</span></span>
+<span class="line"><span class="tag">&lt;/<span class="name">template</span>&gt;</span></span>
+</pre></td></tr></table></figure><p>这是一个简单的返回顶部的按钮, 当页面滚动到 一定距离的时候 <strong>show</strong> 变为 true, (对了, 为什么我的网址没有返回顶部的按钮呢~ 打开控制台就知道了~)</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+</pre></td><td class="code"><pre><span class="line">handleScroll() &#123;</span>
+<span class="line">  <span class="keyword">let</span> scrollTop = getScrollTop();</span>
+<span class="line">  <span class="keyword">this</span>.show = scrollTop &gt; <span class="number">400</span>;</span>
+<span class="line">&#125;,</span>
+</pre></td></tr></table></figure><p>transition 下面的元素通过 <strong>v-if</strong> <strong>v-show</strong> 来控制隐藏和消失~ 然后会有几个状态类~</p><ol><li><strong>v-enter</strong>: 定义进入过渡的开始状态。在元素被插入时生效，在下一个帧移除。</li><li><strong>v-enter-active</strong>: 定义进入过渡的结束状态。在元素被插入时生效，在 transition/animation 完成之后移除。</li><li><strong>v-leave</strong>: 定义离开过渡的开始状态。在离开过渡被触发时生效，在下一个帧移除。</li><li><strong>v-leave-active</strong>: 定义离开过渡的结束状态。在离开过渡被触发时生效，在 transition/animation 完成之后移除。</li></ol><p>我只写了一个样式, 这样的话 按钮进出场的效果都是一样的~</p><figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+</pre></td><td class="code"><pre><span class="line"><span class="selector-class">.back-top-fade-enter</span>,</span>
+<span class="line"><span class="selector-class">.back-top-fade-leave-active</span> &#123;</span>
+<span class="line">  <span class="attribute">transform</span>: <span class="built_in">translateY</span>(-30px);</span>
+<span class="line">  <span class="attribute">opacity</span>: <span class="number">0</span></span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><h2 id="事件"><a href="#事件" class="headerlink" title="事件"></a>事件</h2><p>下面这几个比较有用</p><ul><li>普通的 @click 事件</li><li>@click.self 这样很有用, 只是点击自己的时候有用</li><li>@click.stop 阻止单击事件冒泡</li><li>@click.prevent 阻止默认行为</li></ul><h2 id="Vue-Router"><a href="#Vue-Router" class="headerlink" title="Vue Router"></a>Vue Router</h2><p><strong>beforeRouteUpdate</strong> 这个方法很好用</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+</pre></td><td class="code"><pre><span class="line"></span>
+<span class="line">beforeRouteEnter (to, <span class="keyword">from</span>, next) &#123;</span>
+<span class="line">  <span class="comment">// 在渲染该组件的对应路由被 confirm 前调用</span></span>
+<span class="line">  <span class="comment">// 不！能！获取组件实例 `this`</span></span>
+<span class="line">  <span class="comment">// 因为当钩子执行前，组件实例还没被创建</span></span>
+<span class="line">&#125;,</span>
+<span class="line"></span>
+<span class="line">beforeRouteUpdate (to, <span class="keyword">from</span>, next) &#123;</span>
+<span class="line">  <span class="comment">// 在当前路由改变，但是该组件被复用时调用</span></span>
+<span class="line">  <span class="comment">// 举例来说，对于一个带有动态参数的路径 /foo/:id，在 /foo/1 和 /foo/2 之间跳转的时候，</span></span>
+<span class="line">  <span class="comment">// 由于会渲染同样的 Foo 组件，因此组件实例会被复用。而这个钩子就会在这个情况下被调用。</span></span>
+<span class="line">  <span class="comment">// 可以访问组件实例 `this`</span></span>
+<span class="line">&#125;,</span>
+<span class="line"></span>
+<span class="line">beforeRouteLeave (to, <span class="keyword">from</span>, next) &#123;</span>
+<span class="line">  <span class="comment">// 导航离开该组件的对应路由时调用</span></span>
+<span class="line">  <span class="comment">// 可以访问组件实例 `this`</span></span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><p>还有一个就是</p><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 命名的路由 --&gt;</span></span>
+<span class="line"><span class="tag">&lt;<span class="name">router-link</span> <span class="attr">:to</span>=<span class="string">"&#123; name: 'user', params: &#123; userId: 123 &#125;&#125;"</span>&gt;</span>User<span class="tag">&lt;/<span class="name">router-link</span>&gt;</span></span>
+</pre></td></tr></table></figure><h2 id="watch"><a href="#watch" class="headerlink" title="watch"></a>watch</h2><p>watch 很好用~</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;最近开始接触 vue, 写了一个算是前端小论坛的公司内部项目, 算是一个知识库, 可添加一些常见的问题供别人查阅~&lt;/p&gt;&lt;p&gt;现在做个总结吧, 项目写完一个多星期, 现在想想差不多都忘记了~ 真是老了~&lt;/p&gt;&lt;h2 id=&quot;生命周期&quot;&gt;&lt;a href=&quot;#生命周期&quot; c
+    
+    </summary>
+    
+    
+      <category term="vue" scheme="http://ochukai.me/tags/vue/"/>
+    
+      <category term="image-preview" scheme="http://ochukai.me/tags/image-preview/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>升级到 React 15.5.0 之后遇到的问题。</title>
+    <link href="http://ochukai.me/react-15-5-0/"/>
+    <id>http://ochukai.me/react-15-5-0/</id>
+    <published>2017-04-17T08:43:52.000Z</published>
+    <updated>2017-05-15T03:44:35.099Z</updated>
+    
+    <content type="html"><![CDATA[<p>propTypes 被从 react 包里面分离出来了，如果要用到 <strong>propTypes</strong>, 则必须要自己安装 <code>prop-types</code></p><figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">npm install prop-types --save</span>
+</pre></td></tr></table></figure><p>那么，对于之前项目里面已经存在的 <strong>propTypes</strong> 呢，可以使用 facebook 的这个工具 jscodeshift<sup id="fnref:1"><a href="#fn:1" rel="footnote">1</a></sup> 和 codemod<sup id="fnref:2"><a href="#fn:2" rel="footnote">2</a></sup>, 其中 codemod 最好 clone 在当前项目文件夹。</p><p>用法像这样：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+</pre></td><td class="code"><pre><span class="line">jscodeshift </span>
+<span class="line">  --extensions=js,jsx </span>
+<span class="line">  -t ./react-codemod/transforms/React-PropTypes-to-prop-types.js </span>
+<span class="line">  src</span>
+<span class="line"></span>
+<span class="line">Processing 310 files...</span>
+<span class="line">Spawning 3 workers...</span>
+<span class="line">Sending 50 files to free worker...</span>
+<span class="line">Sending 50 files to free worker...</span>
+<span class="line">Sending 50 files to free worker...</span>
+<span class="line">Sending 50 files to free worker...</span>
+<span class="line">Sending 50 files to free worker...</span>
+<span class="line">Sending 50 files to free worker...</span>
+<span class="line">Sending 10 files to free worker...</span>
+<span class="line">All done.</span>
+<span class="line">Results:</span>
+<span class="line">  0   errors</span>
+<span class="line">  0   unmodified</span>
+<span class="line">  310 skipped</span>
+<span class="line">  0   ok</span>
+<span class="line">Time elapsed: 4.758seconds</span>
+</pre></td></tr></table></figure><p>执行完之后，代码会变成这样：</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+</pre></td><td class="code"><pre><span class="line marked"><span class="keyword">import</span> PropTypes <span class="keyword">from</span> <span class="string">'prop-types'</span>;</span>
+<span class="line"><span class="keyword">import</span> React <span class="keyword">from</span> <span class="string">'react'</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="keyword">import</span> &#123; Form, Card, Modal, Spin &#125; <span class="keyword">from</span> <span class="string">'antd'</span>;</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// ...</span></span>
+<span class="line"></span>
+<span class="line">UserAnswerModal.propTypes = &#123;</span>
+<span class="line marked">  <span class="attr">item</span>: PropTypes.object,</span>
+<span class="line marked">  <span class="attr">visible</span>: PropTypes.bool,</span>
+<span class="line marked">  <span class="attr">loading</span>: PropTypes.bool,</span>
+<span class="line marked">  <span class="attr">type</span>: PropTypes.string,</span>
+<span class="line marked">  <span class="attr">form</span>: PropTypes.object,</span>
+<span class="line marked">  <span class="attr">onOk</span>: PropTypes.func,</span>
+<span class="line marked">  <span class="attr">onCancel</span>: PropTypes.func,</span>
+<span class="line">&#125;;</span>
+</pre></td></tr></table></figure><p>于是问题就解决了，但是因为你引用的包可能会有这个问题，所以 warning 应该不会消失。</p><div id="footnotes"><hr><div id="footnotelist"><ol style="list-style:none;padding-left:0"><li id="fn:1"><span style="display:inline-block;vertical-align:top;padding-right:10px">1.</span><span style="display:inline-block;vertical-align:top"><a href="https://github.com/facebook/jscodeshift" target="_blank" rel="external">github/jscodeshift</a></span><a href="#fnref:1" rev="footnote"> ↩</a></li><li id="fn:2"><span style="display:inline-block;vertical-align:top;padding-right:10px">2.</span><span style="display:inline-block;vertical-align:top"><a href="https://github.com/reactjs/react-codemod" target="_blank" rel="external">github/react-codemod</a></span><a href="#fnref:2" rev="footnote"> ↩</a></li></ol></div></div>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;propTypes 被从 react 包里面分离出来了，如果要用到 &lt;strong&gt;propTypes&lt;/strong&gt;, 则必须要自己安装 &lt;code&gt;prop-types&lt;/code&gt;&lt;/p&gt;&lt;figure class=&quot;highlight sh&quot;&gt;&lt;table&gt;&lt;tr
+    
+    </summary>
+    
+    
+      <category term="react" scheme="http://ochukai.me/tags/react/"/>
+    
+      <category term="jscodeshift" scheme="http://ochukai.me/tags/jscodeshift/"/>
+    
+      <category term="proptypes" scheme="http://ochukai.me/tags/proptypes/"/>
+    
+      <category term="react-codemod" scheme="http://ochukai.me/tags/react-codemod/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>详解 Promise</title>
+    <link href="http://ochukai.me/promise-in-action/"/>
+    <id>http://ochukai.me/promise-in-action/</id>
+    <published>2017-03-08T08:54:54.000Z</published>
+    <updated>2017-04-07T09:13:03.831Z</updated>
+    
+    <content type="html"><![CDATA[<p>偶然看到一篇介绍 Promise 的文章，这个概念也出现好久了，之前一直用着 <a href="https://github.com/cujojs/when" target="_blank" rel="external">whenjs</a>, 但是一直没有时间自己写一个。</p><p>于是下定决心，自己写一个吧~ 毕竟别人都能写出来的东西，而且工作的时候都是在写一些业务型的代码，感觉非常没有创造性~</p><hr><p>Promise 用起来挺简单的，可以很好的解决 js callback 多的时候，缩进很烦的问题。而且线性的写代码也更容易理解~</p><p>现在写这篇文章，就是高中的时候写作文一样，看到题目就开始辗转反侧，脑子里面想好多内容，理清了思路，但是拿起笔就全忘了。</p><p>今天在开始写之前我也下了好大的决心，在代码上面写了大片的注释，感觉写这一篇应该会很顺利吧，结果还是事与愿违，写了些乱七八糟的东西。</p><p>这篇文章主要是介绍 Promise 的用法以及我是怎么实现这么一个库的，但是该怎么开始写呢？于是我列了几个要点，概念，原理，实现，感觉填充起来会比较容易吧，嗯，就这么办吧~</p><h2 id="规范"><a href="#规范" class="headerlink" title="规范"></a>规范</h2><p><a href="https://promisesaplus.com" target="_blank" rel="external">Promise/A+ 规范</a><br><a href="https://tc39.github.io/ecma262/#sec-promise-objects" target="_blank" rel="external">ES6 Promise</a> — 加载比较慢~ 想看就耐心等~</p><p>两个规范在这了，其实现在用的多的是 Promise/A+ 规范，看起来还是很简单的。</p><h2 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h2><p>Promise 就是承诺，会按照 then 的顺序做些事情，出了问题会在 catch 里面。像这样：</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+</pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> p =</span>
+<span class="line">  <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function"><span class="keyword">function</span> (<span class="params">resolve</span>) </span>&#123;</span>
+<span class="line">    setTimeout(<span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span>
+<span class="line">      resolve(<span class="literal">true</span>);</span>
+<span class="line">    &#125;, <span class="number">1000</span>);</span>
+<span class="line">  &#125;)</span>
+<span class="line">  .then(<span class="function"><span class="keyword">function</span> (<span class="params">result</span>) </span>&#123;</span>
+<span class="line">    <span class="built_in">console</span>.log(<span class="string">'result:'</span>, result);</span>
+<span class="line">  &#125;)</span>
+<span class="line">  .catch(<span class="function"><span class="keyword">function</span>(<span class="params">err</span>) </span>&#123;</span>
+<span class="line">    <span class="built_in">console</span>.log(<span class="string">'error:'</span>, err);</span>
+<span class="line">  &#125;);</span>
+</pre></td></tr></table></figure><h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>要说 Promise 的原理，我就假设大家都会用了，要不然看这个干什么~ 当然每个人的想法是不一样的，我开始了~</p><p>以前面试的时候经常会被问到这个问题，你知道 Promise 是怎么实现的吗？ 我说不知道，大概就是有一个数组，for 循环执行吧。2333333333333~</p><p>现在看来是不能用 for 循环来实现 Promise 了，假如好多 Promise 都是耗时间的操作，每个 Promise 的结束时间就不能控制，要等到前一个 Promise 结束之后，主动通知下一个 Promise 执行。所以就要求 Promise 里要保存下一个 Promise 的引用，方便在执行完当前 Promise 的时候调用下一个。</p><p>什么时候才是 Promise 执行结束的标志呢？就是在 then 的回调函数里面调用了 resolve(value) 或者 reject(err)的时候。所以调用下一个 Promise 的地方就在这两个方法里面。</p><p>这样看起来，Promise 的调用过程，一个结束调用另外一个，有点像链表~</p><p><img src="../images/promise-1.png" alt=""></p><h2 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h2><h3 id="链式调用"><a href="#链式调用" class="headerlink" title="链式调用"></a>链式调用</h3><p>首先考虑两种 Promise 的调用方式</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// 1.chain</span></span>
+<span class="line"><span class="keyword">new</span> <span class="built_in">Promise</span>(noop)</span>
+<span class="line">  .then(<span class="function"><span class="keyword">function</span> <span class="title">fn1</span>(<span class="params"></span>) </span>&#123;&#125;)</span>
+<span class="line">  .then(<span class="function"><span class="keyword">function</span> <span class="title">fn2</span>(<span class="params"></span>) </span>&#123;&#125;)</span>
+<span class="line">  .then(<span class="function"><span class="keyword">function</span> <span class="title">fn3</span>(<span class="params"></span>) </span>&#123;&#125;);</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 2.</span></span>
+<span class="line"><span class="keyword">var</span> p = <span class="keyword">new</span> <span class="built_in">Promise</span>(noop);</span>
+<span class="line">p.then(<span class="function"><span class="keyword">function</span> <span class="title">fn1</span>(<span class="params"></span>) </span>&#123;&#125;);</span>
+<span class="line">p.then(<span class="function"><span class="keyword">function</span> <span class="title">fn2</span>(<span class="params"></span>) </span>&#123;&#125;);</span>
+<span class="line">p.then(<span class="function"><span class="keyword">function</span> <span class="title">fn3</span>(<span class="params"></span>) </span>&#123;&#125;);</span>
+</pre></td></tr></table></figure><p>第一种链式的调用方法是按照顺序执行 fn1, fn2, fn3 的意思~ （then 方法会返回新的 Promise 对象，这句话放在这里好像很奇怪~），每一次 .then 都像是连接着一个新的 Promise。</p><p>而第二种写法，fn1, fn2, fn3 是同时开始执行的~ 一个 Promise 连着三个不同的 Promise 形成了三条 Promise 调用链~</p><h3 id="构造函数"><a href="#构造函数" class="headerlink" title="构造函数"></a>构造函数</h3><p>然后说到构造函数，毕竟初始化 Promise 是在这里面进行的。</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+<span class="line">29</span>
+<span class="line">30</span>
+</pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">Promise</span>(<span class="params">resolver</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">if</span> (!util.isFunction(resolver)) &#123;</span>
+<span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">'resolver must be a function'</span>);</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="comment">// 默认是 pending 状态</span></span>
+<span class="line">  <span class="keyword">this</span>.state = PENDING;</span>
+<span class="line">  <span class="comment">// resolve 的值</span></span>
+<span class="line">  <span class="keyword">this</span>.value = <span class="number">0</span>;</span>
+<span class="line">  <span class="comment">// 保存接下来要执行的 promise 的数组，数组里面的元素是 Executor，</span></span>
+<span class="line">  <span class="comment">// 包装了 Promise 及其onReject, onResolve 方法</span></span>
+<span class="line">  <span class="comment">// then 方法可能会添加 Executor 到这个数组，也只有 then 方法会添加元素到这个数组</span></span>
+<span class="line">  <span class="keyword">this</span>.queue = [];</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">if</span> (resolver !== util.noop) &#123;</span>
+<span class="line">    <span class="keyword">this</span>.__callThen(resolver); <span class="comment">// call thenable.</span></span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="built_in">Promise</span>.prototype.then = <span class="function"><span class="keyword">function</span> (<span class="params">onResolved, onRejected</span>) </span>&#123; ... &#125;</span>
+<span class="line"><span class="built_in">Promise</span>.prototype.catch = <span class="function"><span class="keyword">function</span> (<span class="params">onResolved, onRejected</span>) </span>&#123; ... &#125;</span>
+<span class="line"></span>
+<span class="line"><span class="comment">/*</span>
+<span class="line"> * 上面提到的 Executor</span>
+<span class="line"> */</span></span>
+<span class="line"><span class="function"><span class="keyword">function</span> <span class="title">Executor</span>(<span class="params">promise, onResolved, onRejected</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">this</span>.promise = promise;</span>
+<span class="line">  <span class="keyword">this</span>.onRejected = onRejected;</span>
+<span class="line">  <span class="keyword">this</span>.onResolved = onResolved;</span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><p>Promise 大概是这三个函数使用的比较多，当然还有几个静态方法，或者 delay 方法 。</p><p>这里应该写点什么呢，代码里面稍微有点注释，Promise 的数据结构就像构造函数里面写的，初始化 Promise 的函数 <code>function (onResolved, onReject) {}</code> 与 then 方法的参数 <code>function (onResolved, onReject) {}</code> 形式是一样的，被称为 <strong>thenable</strong></p><p>参数被传递进构造函数之后，稍做休息，便直接开始执行了（放在 timeout 里面执行，还是要稍等一下的）。就是在 <code>__callThen</code> 方法里面执行，这个方法也很重要，就是对 thenable 函数 try-catch 一下~ 出现异常当然要拒绝。</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+<span class="line">29</span>
+<span class="line">30</span>
+<span class="line">31</span>
+<span class="line">32</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span>
+<span class="line"> * 调用 then 方法，同时会 try catch 一下，</span>
+<span class="line"> *    如果出错，就 doReject（err）</span>
+<span class="line"> *    如果没错，就 doResolve（value）</span>
+<span class="line"> */</span></span>
+<span class="line"><span class="built_in">Promise</span>.prototype.__callThen = <span class="function"><span class="keyword">function</span> (<span class="params">then</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">var</span> called = <span class="literal">false</span>;</span>
+<span class="line">  <span class="keyword">var</span> self = <span class="keyword">this</span>;</span>
+<span class="line"></span>
+<span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">resolve</span>(<span class="params">value</span>) </span>&#123;</span>
+<span class="line">    <span class="keyword">if</span> (!called) &#123;</span>
+<span class="line">      called = <span class="literal">true</span>;</span>
+<span class="line">      self.doResolve(value);</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">reject</span>(<span class="params">e</span>) </span>&#123;</span>
+<span class="line">    <span class="keyword">if</span> (!called) &#123;</span>
+<span class="line">      called = <span class="literal">true</span>;</span>
+<span class="line">      self.doReject(e);</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">try</span> &#123;</span>
+<span class="line">    then(resolve, reject);</span>
+<span class="line">  &#125; <span class="keyword">catch</span> (e) &#123;</span>
+<span class="line">    <span class="keyword">if</span> (!called) &#123;</span>
+<span class="line">      called = <span class="literal">true</span>;</span>
+<span class="line">      <span class="keyword">this</span>.doReject(e);</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;;</span>
+</pre></td></tr></table></figure><p>好了，到现在为止，then 方法之前的内容就会执行到这里。</p><p>这一段的 主要内容就是，够造了一个 Promise（会执行传入的 thenable 函数）， 还没有涉及到 then。</p><h3 id="Then-函数"><a href="#Then-函数" class="headerlink" title="Then 函数"></a>Then 函数</h3><p>在 then 方法里面，queue 数组终于派上了用场，因为可能会添加 Executor 到 queue 里面去，当构造 Promise 的 thenable 执行很慢的话~</p><p>如果当前 promise 已经被 RESOLVED 或者 REJECTED，那就直接执行 onResolved 或者 onRejected。</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+<span class="line">29</span>
+<span class="line">30</span>
+<span class="line">31</span>
+<span class="line">32</span>
+<span class="line">33</span>
+<span class="line">34</span>
+<span class="line">35</span>
+<span class="line">36</span>
+</pre></td><td class="code"><pre><span class="line"><span class="built_in">Promise</span>.prototype.then = <span class="function"><span class="keyword">function</span> (<span class="params">onResolved, onRejected</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">var</span> promise2 = <span class="keyword">new</span> <span class="built_in">Promise</span>(util.noop);</span>
+<span class="line">  </span>
+<span class="line">  <span class="comment">// state 默认就是 PENDING，如果完成 或者失败会改变</span></span>
+<span class="line">  <span class="comment">// 如果在 then 方法里面还是 PENDING 的话，说明前一个过程还没有结束</span></span>
+<span class="line">  <span class="keyword">if</span> (<span class="keyword">this</span>.state !== PENDING) &#123;</span>
+<span class="line">    <span class="keyword">var</span> dummy = <span class="keyword">this</span>.state === FULFILLED</span>
+<span class="line">              ? onResolved</span>
+<span class="line">              : onRejected;</span>
+<span class="line">    promise2.__runInOrder(dummy, <span class="keyword">this</span>.value);</span>
+<span class="line">  &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">    <span class="keyword">this</span>.queue.push(<span class="keyword">new</span> Executor(promise2, onResolved, onRejected));</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">return</span> promise2;</span>
+<span class="line">&#125;;</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 为什么叫 run in order 呢，我实在是词穷，不过 fn 传递到此函数之后，</span></span>
+<span class="line"><span class="comment">// 会在下一个 tick 按顺序执行，仅此而已~</span></span>
+<span class="line"><span class="built_in">Promise</span>.prototype.__runInOrder = <span class="function"><span class="keyword">function</span> (<span class="params">fn, value</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">var</span> self = <span class="keyword">this</span>;</span>
+<span class="line">  setTimeout(<span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span>
+<span class="line">    <span class="keyword">var</span> ret;</span>
+<span class="line">    <span class="keyword">try</span> &#123;</span>
+<span class="line">      ret = fn(value);</span>
+<span class="line">    &#125; <span class="keyword">catch</span> (e) &#123;</span>
+<span class="line">      <span class="keyword">return</span> self.doReject(e);</span>
+<span class="line">    &#125;</span>
+<span class="line"></span>
+<span class="line">    <span class="keyword">if</span> (ret === self) &#123;</span>
+<span class="line">      self.doReject(<span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">'Cannot resolve promise with itself.'</span>));</span>
+<span class="line">    &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">      self.doResolve(ret);</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;);</span>
+<span class="line">&#125;;</span>
+</pre></td></tr></table></figure><p>接下来的两个方法比较最重要，上面可能看到过很多次他们的身影，但我都没有说过，最开始的时候我说前一个 promise 完成的时候要通知下一个 promise，这个通知的过程就在这两个方法里进行的。</p><p>有一点不同的是：doResolve 方法要检查前一个 promise 返回的值，如果前一个 promise 完成时返回了一个新的 promise，那么肯定要等这个返回的 promise 执行完成之后再 doResolve，而 doReject 就很直截了当了，反正你出错了，不要再执行了，然后就报错了~</p><h3 id="doResolve"><a href="#doResolve" class="headerlink" title="doResolve"></a>doResolve</h3><p>前面说了太多这里没什么好写的了，看看代码吧~</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+</pre></td><td class="code"><pre><span class="line"><span class="built_in">Promise</span>.prototype.doResolve = <span class="function"><span class="keyword">function</span> (<span class="params">value</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">try</span> &#123;</span>
+<span class="line">    <span class="keyword">var</span> then = util.getThen(value);</span>
+<span class="line">    <span class="keyword">if</span> (then) &#123;</span>
+<span class="line">      <span class="keyword">this</span>.__callThen(then);</span>
+<span class="line">    &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">      <span class="keyword">this</span>.state = FULFILLED;</span>
+<span class="line">      <span class="keyword">this</span>.value = value;</span>
+<span class="line">      <span class="comment">// Executor 的 doResolve</span></span>
+<span class="line">      <span class="keyword">this</span>.queue.forEach(<span class="function"><span class="keyword">function</span> (<span class="params">item</span>) </span>&#123;</span>
+<span class="line">        item.doResolve(value);</span>
+<span class="line">      &#125;);</span>
+<span class="line">    &#125;</span>
+<span class="line"></span>
+<span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>;</span>
+<span class="line">  &#125; <span class="keyword">catch</span> (e) &#123;</span>
+<span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>.doReject(e);</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;;</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 如果 onResolved 不是函数就继续执行下一个 promise， 这是规定~</span></span>
+<span class="line">Executor.prototype.doResolve = <span class="function"><span class="keyword">function</span> (<span class="params">value</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">if</span> (util.isFunction(<span class="keyword">this</span>.onResolved)) &#123;</span>
+<span class="line">    <span class="keyword">this</span>.promise.__runInOrder(<span class="keyword">this</span>.onResolved, value);</span>
+<span class="line">  &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">    <span class="keyword">this</span>.promise.doResolve(value);</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;;</span>
+</pre></td></tr></table></figure><h3 id="doReject"><a href="#doReject" class="headerlink" title="doReject"></a>doReject</h3><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+</pre></td><td class="code"><pre><span class="line"><span class="built_in">Promise</span>.prototype.doReject = <span class="function"><span class="keyword">function</span> (<span class="params">err</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">this</span>.state = REJECTED;</span>
+<span class="line">  <span class="keyword">this</span>.value = err;</span>
+<span class="line">  <span class="keyword">this</span>.queue.forEach(<span class="function"><span class="keyword">function</span> (<span class="params">item</span>) </span>&#123;</span>
+<span class="line">    item.doReject(err);</span>
+<span class="line">  &#125;);</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">return</span> <span class="keyword">this</span>;</span>
+<span class="line">&#125;;</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 同上</span></span>
+<span class="line">Executor.prototype.doReject = <span class="function"><span class="keyword">function</span> (<span class="params">err</span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">if</span> (util.isFunction(<span class="keyword">this</span>.onRejected)) &#123;</span>
+<span class="line">    <span class="keyword">this</span>.promise.__runInOrder(<span class="keyword">this</span>.onRejected, err);</span>
+<span class="line">  &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">    <span class="keyword">this</span>.promise.doReject(err);</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;;</span>
+</pre></td></tr></table></figure><p>好像概念都写完了。</p><p>Github： <a href="https://github.com/ochukai/promise" target="_blank" rel="external">ochukai/promise</a></p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;偶然看到一篇介绍 Promise 的文章，这个概念也出现好久了，之前一直用着 &lt;a href=&quot;https://github.com/cujojs/when&quot; target=&quot;_blank&quot; rel=&quot;external&quot;&gt;whenjs&lt;/a&gt;, 但是一直没有时间自己写一个。
+    
+    </summary>
+    
+    
+      <category term="js" scheme="http://ochukai.me/tags/js/"/>
+    
+      <category term="promise" scheme="http://ochukai.me/tags/promise/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>(**) 的 IE 👽</title>
+    <link href="http://ochukai.me/ie-css-hack/"/>
+    <id>http://ochukai.me/ie-css-hack/</id>
+    <published>2017-02-17T08:17:14.000Z</published>
+    <updated>2017-02-17T08:40:31.600Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote><p>以前都说前端坑，或者前端入坑了，为什么呢？ 因为 IE 啊。</p></blockquote><p>我做前端以来，一直都是很幸福的，因为还几乎咩有处理过 ie 的兼容问题。</p><p>但是最近要处理，以前应付面试背过的兼容方案都忘掉了，所以还是要查。</p><p>忽略 IE6，IE7 的情况下，规则就这几条：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+</pre></td><td class="code"><pre><span class="line">\9    IE6/IE7/IE8/IE9/IE10都生效 </span>
+<span class="line">\0    IE8/IE9/IE10都生效</span>
+<span class="line">\9\0  只对IE9/IE10生效</span>
+</pre></td></tr></table></figure><p>当然还有这个东西</p><figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!--[if lt IE 9]&gt;&lt;![endif]--&gt;</span></span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;&lt;p&gt;以前都说前端坑，或者前端入坑了，为什么呢？ 因为 IE 啊。&lt;/p&gt;&lt;/blockquote&gt;&lt;p&gt;我做前端以来，一直都是很幸福的，因为还几乎咩有处理过 ie 的兼容问题。&lt;/p&gt;&lt;p&gt;但是最近要处理，以前应付面试背过的兼容方案都忘掉了，所以还是要查
+    
+    </summary>
+    
+      <category term="IE" scheme="http://ochukai.me/categories/ie/"/>
+    
+    
+      <category term="ie" scheme="http://ochukai.me/tags/ie/"/>
+    
+      <category term="css hack" scheme="http://ochukai.me/tags/css-hack/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>下载 window 聚焦壁纸 😜</title>
+    <link href="http://ochukai.me/window-focus-wallpaper/"/>
+    <id>http://ochukai.me/window-focus-wallpaper/</id>
+    <published>2017-02-17T01:29:58.000Z</published>
+    <updated>2017-03-22T07:02:46.868Z</updated>
+    
+    <content type="html"><![CDATA[<p>一直觉得 window 聚焦的壁纸很好看~<br>今天终于找到了壁纸存放的路径，就是下面这个</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">%localappdata%\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets</span>
+</pre></td></tr></table></figure><p><code>Win + s</code> 打开Cortana，复制这个网址打开就行了，里面都是没有扩展名的文件，<strong>重命名为 jpg</strong> 就可以看了~</p><p>这是一个批量重命名文件的工具，挺好用。</p><blockquote><p><a href="http://pan.baidu.com/s/1jH71JRg" target="_blank" rel="external">百度云</a>（ww30）</p></blockquote>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;一直觉得 window 聚焦的壁纸很好看~&lt;br&gt;今天终于找到了壁纸存放的路径，就是下面这个&lt;/p&gt;&lt;figure class=&quot;highlight plain&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1
+    
+    </summary>
+    
+      <category term="Window" scheme="http://ochukai.me/categories/window/"/>
+    
+    
+      <category term="wallpaper" scheme="http://ochukai.me/tags/wallpaper/"/>
+    
+      <category term="window" scheme="http://ochukai.me/tags/window/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>更换 window 命令行字体</title>
+    <link href="http://ochukai.me/change-window-terminal-terminal-font/"/>
+    <id>http://ochukai.me/change-window-terminal-terminal-font/</id>
+    <published>2017-02-15T02:16:08.000Z</published>
+    <updated>2017-02-15T02:30:06.016Z</updated>
+    
+    <content type="html"><![CDATA[<p>我一直觉得 window 命令行下面的字体非常丑陋，因为有时会用 git bash， 有时也会直接使用编译器自带的控制台，这些都是可以设置字体的，所以 window 自带的命令行用的不是太多。</p><p>今天刚好看到一篇文章是写关于修改命令行字体的，哈哈。</p><p>首先打开<strong>一个命令行窗口</strong>，输入</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">chcp 437</span>
+</pre></td></tr></table></figure><p>然后设置字体，这个时候你就发现多了好多等宽字体。</p><p><img src="/images/font-terminal.png" alt="正常"></p><p>选择想要的字体保存之后，<strong>把命令行窗口先关闭，然后再打开</strong>，输入</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+</pre></td><td class="code"><pre><span class="line">chcp 936</span>
+</pre></td></tr></table></figure><blockquote><p>chcp 是切换 cmd 程序的当前代码页，936 是中文环境，437 是英文环境</p></blockquote><p>然后命令行的字体就改变了。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;我一直觉得 window 命令行下面的字体非常丑陋，因为有时会用 git bash， 有时也会直接使用编译器自带的控制台，这些都是可以设置字体的，所以 window 自带的命令行用的不是太多。&lt;/p&gt;&lt;p&gt;今天刚好看到一篇文章是写关于修改命令行字体的，哈哈。&lt;/p&gt;&lt;p&gt;首
+    
+    </summary>
+    
+      <category term="Window" scheme="http://ochukai.me/categories/window/"/>
+    
+    
+      <category term="terminal" scheme="http://ochukai.me/tags/terminal/"/>
+    
+      <category term="font" scheme="http://ochukai.me/tags/font/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>稍微总结一下 dva 😜</title>
+    <link href="http://ochukai.me/dva-in-action/"/>
+    <id>http://ochukai.me/dva-in-action/</id>
+    <published>2017-01-23T01:28:20.000Z</published>
+    <updated>2017-01-24T06:18:01.627Z</updated>
+    
+    <content type="html"><![CDATA[<p>使用 dva 已经四个月了吧，陆陆续续做了两三个项目，之前在非常恶心的傻逼公司 Kyligence，算是我的 dva 的启蒙地，那一天傍晚，不小心看到了 ant-tool，然后又看到了 antd，于是感觉我的前端有了一次不小的改变~ 😇</p><h2 id="几个概念"><a href="#几个概念" class="headerlink" title="几个概念"></a>几个概念</h2><p><img src="../images/dva-flow.png" alt=""></p><p>上面是一张 dva 的图，<code>component，state，dispatch，connect</code> 都是与 redux 一样的概念，不过，dva 把 <strong>action -&gt; reducer</strong> 拆分成了，<strong>action -&gt; model(reducer, effect,subscription)</strong>，这一部分改变的还是很多的，让 dispatch 的写法方便了一万倍。</p><h2 id="Model"><a href="#Model" class="headerlink" title="Model"></a>Model</h2><p>一个简单的 model 是这样的:</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+</pre></td><td class="code"><pre><span class="line"><span class="keyword">export</span> <span class="keyword">default</span> &#123;</span>
+<span class="line">  <span class="attr">namespace</span>: <span class="string">'example'</span>, <span class="comment">// 这里是命名空间  </span></span>
+<span class="line">  state: &#123;&#125;,</span>
+<span class="line">  <span class="attr">subscriptions</span>: &#123;&#125;,</span>
+<span class="line">  </span>
+<span class="line">  <span class="attr">effects</span>: &#123;</span>
+<span class="line">    * query(&#123; payload &#125;, &#123; select, call, put &#125;) &#123;</span>
+<span class="line">      <span class="comment">//</span></span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;,</span>
+<span class="line"></span>
+<span class="line">  <span class="attr">reducers</span>: &#123;</span>
+<span class="line">    querySuccess(state, &#123; payload &#125;) &#123;</span>
+<span class="line">      <span class="comment">//</span></span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;,</span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><h3 id="namespace"><a href="#namespace" class="headerlink" title="namespace"></a>namespace</h3><p>可以简单的理解为 comboReducer 使用这个值作为 key，而且 namespace 最重要的地方是用在 dispatch（put）的时候</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// 假如 example 的 model 定义了 query 这个 effect 或者 reducer。</span></span>
+<span class="line">dispatch(&#123; <span class="attr">type</span>: <span class="string">'example/query'</span> &#125;)</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 当前 model 中存在名为 querySuccess 的 reducer</span></span>
+<span class="line"><span class="comment">// 然后在 effect 中这样访问 reducer</span></span>
+<span class="line"><span class="keyword">yield</span> put(&#123; <span class="attr">type</span>: <span class="string">'querySuccess'</span> &#125;) </span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 在组件中当然可以直接 dispatch(&#123; type: 'example/someReducer' &#125;)</span></span>
+</pre></td></tr></table></figure><h3 id="state"><a href="#state" class="headerlink" title="state"></a>state</h3><p>就是一个对象</p><h3 id="subscriptions"><a href="#subscriptions" class="headerlink" title="subscriptions"></a>subscriptions</h3><p>顾名思义可以订阅一些事件，待续😆</p><h3 id="effects"><a href="#effects" class="headerlink" title="effects"></a>effects</h3><p>异步操作，这里使用了 <a href="https://github.com/redux-saga/redux-saga" target="_blank" rel="external">redux-sagas</a>，先举个例子吧，其实就是异步的action， 但是是使用 sagas 实现的，很好（niu）看（bi）。</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// ...</span></span>
+<span class="line">* update(&#123; payload &#125;, &#123; call, put &#125;) &#123;</span>
+<span class="line">  <span class="keyword">yield</span> put(&#123; <span class="attr">type</span>: <span class="string">'showModalLoading'</span> &#125;);</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">const</span> &#123; data &#125; = <span class="keyword">yield</span> call(saveTenants, payload);</span>
+<span class="line">  <span class="keyword">if</span> (data.status === <span class="string">'success'</span>) &#123;</span>
+<span class="line">    <span class="keyword">yield</span> put(&#123; <span class="attr">type</span>: <span class="string">'hideModal'</span> &#125;);</span>
+<span class="line">    <span class="keyword">yield</span> put(&#123; <span class="attr">type</span>: <span class="string">'query'</span> &#125;); <span class="comment">// 刷新一下列表</span></span>
+<span class="line">  &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">    <span class="keyword">yield</span> put(&#123; <span class="attr">type</span>: <span class="string">'hideModalLoading'</span> &#125;);</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;,</span>
+<span class="line"><span class="comment">// ...</span></span>
+</pre></td></tr></table></figure><p>（感觉丝毫不需要我用文字描述，顺着读完就知道是什么意思了，还是特么异步的）</p><blockquote><p>select, put, call 这些概念是 sagas 里面的</p></blockquote><h3 id="reducer"><a href="#reducer" class="headerlink" title="reducer"></a>reducer</h3><p>修改 state 的地方</p><h2 id="dva"><a href="#dva" class="headerlink" title="dva"></a>dva</h2><p>dva 会对 dispatch 做一些处理，比如他要把 <strong>example/query</strong> 分成 example 下面的 query （effect/reducer）。</p><p>所以肯定要注册这个 model，才能让 dva 知道 example 的存在，</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+</pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> dva <span class="keyword">from</span> <span class="string">'dva'</span>;</span>
+<span class="line"><span class="keyword">const</span> app = dva();</span>
+<span class="line"></span>
+<span class="line">app.model(<span class="built_in">require</span>(<span class="string">'./models/example'</span>));</span>
+</pre></td></tr></table></figure><p>其实 dva 出了 model 这个方法，还有其他的几个</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// 1. Init</span></span>
+<span class="line"><span class="keyword">import</span> dva <span class="keyword">from</span> <span class="string">'dva'</span>;</span>
+<span class="line"><span class="keyword">const</span> app = dva();</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 2. Plugins</span></span>
+<span class="line">app.use(&#123;</span>
+<span class="line"><span class="comment">/**</span>
+<span class="line">* called when an effect or subscription emit an error.</span>
+<span class="line">*</span>
+<span class="line">* @param  &#123;string&#125; err       Exception</span>
+<span class="line">* @param  &#123;function&#125; action  the effect or subscription</span>
+<span class="line">*/</span></span>
+<span class="line"><span class="comment">// onError : (err, action) =&gt; &#123;&#125;</span></span>
+<span class="line">&#125;);</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 3. Model</span></span>
+<span class="line">app.model(<span class="built_in">require</span>(<span class="string">'./models/example'</span>));</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 4. Router</span></span>
+<span class="line">app.router(<span class="built_in">require</span>(<span class="string">'./router'</span>));</span>
+<span class="line"></span>
+<span class="line"><span class="comment">// 5. Start</span></span>
+<span class="line">app.start(<span class="string">'#root'</span>);</span>
+</pre></td></tr></table></figure><h2 id="dev-cli"><a href="#dev-cli" class="headerlink" title="dev-cli"></a><a href="https://github.com/dvajs/dva-cli" target="_blank" rel="external">dev-cli</a></h2><p>比较好用的东西，解决了新建 router，component，model 还要添加 dva 的配置的问题，生成 router， component 的同时会直接在 dva 配置中更新。</p><p>例子：</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+</pre></td><td class="code"><pre><span class="line">$ dva g route product-list</span>
+<span class="line">$ dva g model products</span>
+<span class="line">$ dva g component Editor</span>
+<span class="line">$ dva g component Users/UserModal</span>
+<span class="line">$ dva g component Header --no-css</span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;使用 dva 已经四个月了吧，陆陆续续做了两三个项目，之前在非常恶心的傻逼公司 Kyligence，算是我的 dva 的启蒙地，那一天傍晚，不小心看到了 ant-tool，然后又看到了 antd，于是感觉我的前端有了一次不小的改变~ 😇&lt;/p&gt;&lt;h2 id=&quot;几个概念&quot;&gt;
+    
+    </summary>
+    
+      <category term="React" scheme="http://ochukai.me/categories/react/"/>
+    
+      <category term="JavaScript" scheme="http://ochukai.me/categories/react/javascript/"/>
+    
+    
+      <category term="js" scheme="http://ochukai.me/tags/js/"/>
+    
+      <category term="dva" scheme="http://ochukai.me/tags/dva/"/>
+    
+      <category term="react" scheme="http://ochukai.me/tags/react/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>删除 .svn 文件夹</title>
+    <link href="http://ochukai.me/remove-svn-folder/"/>
+    <id>http://ochukai.me/remove-svn-folder/</id>
+    <published>2017-01-22T02:09:47.000Z</published>
+    <updated>2017-01-22T02:30:05.297Z</updated>
+    
+    <content type="html"><![CDATA[<p>新建 remove-svn.bat, 放到项目根目录执行就好了。（本来以为 svn 会提供这样的功能，结果还要自己写，😒）</p><figure class="highlight bat"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+</pre></td><td class="code"><pre><span class="line">@<span class="built_in">echo</span> on</span>
+<span class="line">@<span class="keyword">for</span> /r . <span class="variable">%%a</span> <span class="keyword">in</span> (.) <span class="keyword">do</span> @<span class="keyword">if</span> <span class="keyword">exist</span> "<span class="variable">%%a</span>\.svn" <span class="built_in">rd</span> /s /q "<span class="variable">%%a</span>\.svn"</span>
+<span class="line">@<span class="built_in">pause</span></span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;新建 remove-svn.bat, 放到项目根目录执行就好了。（本来以为 svn 会提供这样的功能，结果还要自己写，😒）&lt;/p&gt;&lt;figure class=&quot;highlight bat&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span 
+    
+    </summary>
+    
+      <category term="SVN" scheme="http://ochukai.me/categories/svn/"/>
+    
+    
+      <category term="svn" scheme="http://ochukai.me/tags/svn/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Textarea 的高度自动增长</title>
+    <link href="http://ochukai.me/textarea-height-auto-increase/"/>
+    <id>http://ochukai.me/textarea-height-auto-increase/</id>
+    <published>2017-01-20T03:48:10.000Z</published>
+    <updated>2017-04-14T01:57:00.873Z</updated>
+    
+    <content type="html"><![CDATA[<p>一般情况下，textarea 的高度是定死的，rows 指定了之后，高度就不变了，内容多了之后会出现滚动条，这样的设定在大部分的场景下面是够用的， 但是有时就会很丑陋（废话😊）。</p><p>我们都知道 HTML 的元素都有一个 scrollHeight 这个属性，就是当该元素出现滚动条的时候，内容的高度。</p><p>那就方便了：</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+</pre></td><td class="code"><pre><span class="line">$(<span class="string">".weui-textarea"</span>).on(<span class="string">'input propertychange keyup'</span>,<span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span>
+<span class="line">  $(<span class="keyword">this</span>).height(<span class="keyword">this</span>.scrollHeight);</span>
+<span class="line">&#125;);</span>
+</pre></td></tr></table></figure><p>这样就实现了高度自动增加的 Textarea，但当我试着删掉几行，想让它自动降低高度的时候不禁菊花一紧，他不动~</p><p>这就尴尬,,ԾㅂԾ,,了，于是我就找了另外一种方法:</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+<span class="line">29</span>
+<span class="line">30</span>
+<span class="line">31</span>
+<span class="line">32</span>
+<span class="line">33</span>
+<span class="line">34</span>
+<span class="line">35</span>
+<span class="line">36</span>
+</pre></td><td class="code"><pre><span class="line">$(<span class="string">'.weui-textarea'</span>).on(<span class="string">'input keyup'</span>, <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span>
+<span class="line">  <span class="comment">// 尝试滚动一段距离，如果没有滚动条，scrollTop 还是 0</span></span>
+<span class="line">  <span class="keyword">if</span> (<span class="keyword">this</span>.scrollTop == <span class="number">0</span>) &#123;</span>
+<span class="line">    <span class="keyword">this</span>.scrollTop = <span class="number">1</span>;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">while</span> (<span class="keyword">this</span>.scrollTop == <span class="number">0</span>) &#123;</span>
+<span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.rows &gt; minRows) &#123;</span>
+<span class="line">      <span class="keyword">this</span>.rows--;</span>
+<span class="line">    &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">      <span class="keyword">break</span>;</span>
+<span class="line">    &#125;</span>
+<span class="line"></span>
+<span class="line">    <span class="keyword">this</span>.scrollTop = <span class="number">1</span>;</span>
+<span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.rows &lt; maxRows) &#123;</span>
+<span class="line">      <span class="keyword">this</span>.style.overflowY = <span class="string">"hidden"</span>;</span>
+<span class="line">    &#125;</span>
+<span class="line"></span>
+<span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.scrollTop &gt; <span class="number">0</span>) &#123;</span>
+<span class="line">      <span class="keyword">this</span>.rows++;</span>
+<span class="line">      <span class="keyword">break</span>;</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">while</span> (<span class="keyword">this</span>.scrollTop &gt; <span class="number">0</span>) &#123;</span>
+<span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.rows &lt; maxRows) &#123;</span>
+<span class="line">      <span class="keyword">this</span>.rows++;</span>
+<span class="line">      <span class="keyword">if</span> (<span class="keyword">this</span>.scrollTop == <span class="number">0</span>) &#123;</span>
+<span class="line">        <span class="keyword">this</span>.scrollTop = <span class="number">1</span>;</span>
+<span class="line">      &#125;</span>
+<span class="line">    &#125; <span class="keyword">else</span> &#123;</span>
+<span class="line">      <span class="keyword">this</span>.style.overflowY = <span class="string">"auto"</span>;</span>
+<span class="line">      <span class="keyword">break</span>;</span>
+<span class="line">    &#125;</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;);</span>
+</pre></td></tr></table></figure><p>这是一个例子~ （换行试试~😏）</p><p><textarea class="weui-textarea" placeholder="这是一个例子~" rows="3" style="resize:none;width:100%;border:1px solid pink;border-radius:4px;padding:5px;font-size:14px"></textarea></p><script>$(function(){var o=3,s=10;$(".weui-textarea").on("input keyup",function(){for(0==this.scrollTop&&(this.scrollTop=1);0==this.scrollTop&&this.rows>o;)if(this.rows--,this.scrollTop=1,this.rows<s&&(this.style.overflowY="hidden"),this.scrollTop>0){this.rows++;break}for(;this.scrollTop>0;){if(!(this.rows<s)){this.style.overflowY="auto";break}this.rows++,0==this.scrollTop&&(this.scrollTop=1)}})})</script>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;一般情况下，textarea 的高度是定死的，rows 指定了之后，高度就不变了，内容多了之后会出现滚动条，这样的设定在大部分的场景下面是够用的， 但是有时就会很丑陋（废话😊）。&lt;/p&gt;&lt;p&gt;我们都知道 HTML 的元素都有一个 scrollHeight 这个属性，就是当
+    
+    </summary>
+    
+    
+      <category term="textarea" scheme="http://ochukai.me/tags/textarea/"/>
+    
+      <category term="html" scheme="http://ochukai.me/tags/html/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>JavaScript 绑定 this</title>
+    <link href="http://ochukai.me/js-bind-this/"/>
+    <id>http://ochukai.me/js-bind-this/</id>
+    <published>2016-12-30T02:28:20.000Z</published>
+    <updated>2016-12-30T03:55:16.592Z</updated>
+    
+    <content type="html"><![CDATA[<p>其实这篇文章主要是介绍这个东西 <a href="https://github.com/tc39/proposal-bind-operator" target="_blank" rel="external">Proposal Bind Operator</a> 或者 <a href="http://wiki.ecmascript.org/doku.php?id=strawman:bind_operator" target="_blank" rel="external">bind_operator</a>。</p><p>也是在一个很偶然的机会看到了，git 上面的一个项目用到了这个用法，为什么自己发现不了这些东西呢？</p><h2 id="传统的-this-绑定"><a href="#传统的-this-绑定" class="headerlink" title="传统的 this 绑定"></a>传统的 this 绑定</h2><h3 id="在函数外面暂存一个变量"><a href="#在函数外面暂存一个变量" class="headerlink" title="在函数外面暂存一个变量"></a>在函数外面暂存一个变量</h3><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// 别名</span></span>
+<span class="line"><span class="keyword">var</span> self = <span class="keyword">this</span>;</span>
+<span class="line">setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span>
+<span class="line">  <span class="keyword">this</span>.doSomething();</span>
+<span class="line">&#125;, <span class="number">1000</span>);</span>
+</pre></td></tr></table></figure><h3 id="使用-bind-函数-amp-箭头函数"><a href="#使用-bind-函数-amp-箭头函数" class="headerlink" title="使用 bind 函数 &amp; 箭头函数"></a>使用 bind 函数 &amp; 箭头函数</h3><p>在使用 <code>class *** extends React.Component {}</code> 的写法声明 React 组件的时候，组件的方法都不会被自动绑定 this 了，下面的两种方法比较常见：</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// bind</span></span>
+<span class="line">setTimeout(</span>
+<span class="line">  <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span>
+<span class="line">    <span class="keyword">this</span>.doSomething();</span>
+<span class="line">  &#125;.bind(<span class="keyword">this</span>), </span>
+<span class="line">  <span class="number">1000</span></span>
+<span class="line">);</span>
+</pre></td></tr></table></figure><p>使用 <code>bind</code> 方法显得稍微有点长，不太好看，不过很好用。</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// var _this = this;</span></span>
+<span class="line"></span>
+<span class="line"><span class="comment">// bind</span></span>
+<span class="line">setTimeout(</span>
+<span class="line">  <span class="function"><span class="params">()</span> =&gt;</span> &#123;</span>
+<span class="line">    <span class="comment">// _this.doSomething();</span></span>
+<span class="line">    <span class="keyword">this</span>.doSomething();</span>
+<span class="line">  &#125;, </span>
+<span class="line">  <span class="number">1000</span></span>
+<span class="line">);</span>
+</pre></td></tr></table></figure><p>箭头函数在经过<code>babel</code>编译后， 差不多就是注释的部分了， 还是用的暂存的办法保存了 <code>this</code>，但是写法就简单了太多。</p><h3><a href="#" class="headerlink" title="::"></a>::</h3><p>看到这种语法之后，感觉其他的都弱爆了。</p><p>在 React 里面，可以这么写</p><figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+</pre></td><td class="code"><pre><span class="line"><span class="comment">// &#123; title: '******************', onConfirm: this.handleSave.bind(this) &#125;,</span></span>
+<span class="line">&lt;Popconfirm title=<span class="string">"确定要保存吗？"</span> onConfirm=&#123;::<span class="keyword">this</span>.handleSave&#125;&gt;</span>
+<span class="line">  <span class="xml"><span class="tag">&lt;<span class="name">Button</span> <span class="attr">type</span>=<span class="string">"ghost"</span> &gt;</span>保存<span class="tag">&lt;/<span class="name">Button</span>&gt;</span></span></span>
+<span class="line">&lt;<span class="regexp">/Popconfirm&gt;</span></span>
+</pre></td></tr></table></figure><p>可以看到，注释部分表示的编译后的代码，就是用 <code>bind</code> 实现的。</p><p>双冒号前面的对象就是 <code>bind</code> 的参数， 如果没有就是当前的 <code>this</code>, 毕竟这种做法就是用来做绑定的。</p><p>但是有一个问题，就是像这样的需求不好实现，</p><figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+</pre></td><td class="code"><pre><span class="line">&lt;Button</span>
+<span class="line">  type=<span class="string">"ghost"</span></span>
+<span class="line">  icon=<span class="string">"edit"</span></span>
+<span class="line">  onClick=&#123;<span class="keyword">this</span>.handleEdit.bind(<span class="keyword">this</span>, item)&#125;</span>
+<span class="line">/&gt;</span>
+</pre></td></tr></table></figure><p>然后就是黑人问号脸，我试了几种形式 (当然不能用 bind 方法，否则这 :: 没有意义了)</p><ul><li>[this, item]::this.handleEdit</li><li>(this, item)::this.handleEdit // hhh</li><li>this::this.handleEdit(item) // hhh</li></ul><p>感觉唯一靠谱的就是第一种写法了， 编译之后</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+</pre></td><td class="code"><pre><span class="line">_react2.default.createElement(</span>
+<span class="line">  _button2.default,</span>
+<span class="line">  &#123; </span>
+<span class="line">    <span class="attr">type</span>: <span class="string">'ghost'</span>, </span>
+<span class="line">    <span class="attr">icon</span>: <span class="string">'edit'</span>, </span>
+<span class="line">    <span class="attr">onClick</span>: (_context = [<span class="keyword">this</span>, item], <span class="keyword">this</span>.handleEdit).bind(_context) </span>
+<span class="line">  &#125;,</span>
+<span class="line">  <span class="string">''</span></span>
+<span class="line">)</span>
+</pre></td></tr></table></figure><p>这样 bind 之后的方法内的 this 是一个数组，要想获取到真正的 this, 在 handleEdit 中还需要做</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+</pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handleEdit</span> (<span class="params"></span>) </span>&#123;</span>
+<span class="line">  <span class="comment">// this: [this, item]</span></span>
+<span class="line">  <span class="comment">// 感觉好尴尬~</span></span>
+<span class="line">  <span class="built_in">console</span>.log(<span class="keyword">this</span>[<span class="number">0</span>]);</span>
+<span class="line">  <span class="comment">// const [ _this, item ] = this;</span></span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><blockquote><p>所以呢 在需要绑定 this 并且要添加额外参数的时候，就不要用 <strong>::</strong> 了。老老实实用 <strong>bind</strong> 就好了。</p></blockquote><h2 id="箭头函数声明在-class-里面"><a href="#箭头函数声明在-class-里面" class="headerlink" title="箭头函数声明在 class 里面"></a>箭头函数声明在 class 里面</h2><figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+</pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Example</span> <span class="keyword">extends</span> <span class="title">React</span>.<span class="title">Component</span> </span>&#123;</span>
+<span class="line"></span>
+<span class="line">  handleButtonClick = <span class="function">(<span class="params">e</span>) =&gt;</span> &#123;</span>
+<span class="line">    <span class="keyword">this</span>.setState(&#123; <span class="attr">loading</span>: <span class="literal">true</span> &#125;);</span>
+<span class="line">  &#125;;</span>
+<span class="line"></span>
+<span class="line">  render() &#123;</span>
+<span class="line">    <span class="keyword">return</span> <span class="xml"><span class="tag">&lt;<span class="name">Button</span> <span class="attr">onClick</span>=<span class="string">&#123;this.handleButtonClick&#125;</span>&gt;</span>;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line">// var Example = React.createClass(&#123;</span>
+<span class="line">//</span>
+<span class="line">//   handleButtonClick: function(e) &#123;</span>
+<span class="line">//     this.setState(&#123; loading: true &#125;);</span>
+<span class="line">//   &#125;,</span>
+<span class="line">//   ...</span>
+<span class="line">// &#125;);</span></span>
+</pre></td></tr></table></figure><p>这样应该是最简单的方式了，因为是自动绑定 this 的（与注释中的代码效果是一样的）。</p><p>以上。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;其实这篇文章主要是介绍这个东西 &lt;a href=&quot;https://github.com/tc39/proposal-bind-operator&quot; target=&quot;_blank&quot; rel=&quot;external&quot;&gt;Proposal Bind Operator&lt;/a&gt; 或者 &lt;a 
+    
+    </summary>
+    
+      <category term="JavaScript" scheme="http://ochukai.me/categories/javascript/"/>
+    
+    
+      <category term="js" scheme="http://ochukai.me/tags/js/"/>
+    
+      <category term="this" scheme="http://ochukai.me/tags/this/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>修改 WebStorm 里面丑陋的 Markdown 样式</title>
+    <link href="http://ochukai.me/correct-ugly-markdown-css-in-webstorm/"/>
+    <id>http://ochukai.me/correct-ugly-markdown-css-in-webstorm/</id>
+    <published>2016-12-23T07:27:27.000Z</published>
+    <updated>2017-02-15T02:14:41.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>一直觉得在 webstrom 里面看 markdown 是一种折磨，尤其是有 table 的情况下，很不爽！！！</p><p>今天突然发现有一个设置项可以自定义 markdown 的样式，</p><p><img src="../images/webstorm-md-css-1.png" alt="设置"></p><p>就是右边方框里面的选项，取消 webstorm 默认的， 然后添加自己的 css，下面的css 是我找来的，还可以看：</p><figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+<span class="line">13</span>
+<span class="line">14</span>
+<span class="line">15</span>
+<span class="line">16</span>
+<span class="line">17</span>
+<span class="line">18</span>
+<span class="line">19</span>
+<span class="line">20</span>
+<span class="line">21</span>
+<span class="line">22</span>
+<span class="line">23</span>
+<span class="line">24</span>
+<span class="line">25</span>
+<span class="line">26</span>
+<span class="line">27</span>
+<span class="line">28</span>
+<span class="line">29</span>
+<span class="line">30</span>
+<span class="line">31</span>
+<span class="line">32</span>
+<span class="line">33</span>
+<span class="line">34</span>
+<span class="line">35</span>
+<span class="line">36</span>
+<span class="line">37</span>
+<span class="line">38</span>
+<span class="line">39</span>
+<span class="line">40</span>
+<span class="line">41</span>
+<span class="line">42</span>
+<span class="line">43</span>
+<span class="line">44</span>
+<span class="line">45</span>
+<span class="line">46</span>
+<span class="line">47</span>
+<span class="line">48</span>
+<span class="line">49</span>
+<span class="line">50</span>
+<span class="line">51</span>
+<span class="line">52</span>
+<span class="line">53</span>
+<span class="line">54</span>
+<span class="line">55</span>
+<span class="line">56</span>
+<span class="line">57</span>
+<span class="line">58</span>
+<span class="line">59</span>
+<span class="line">60</span>
+<span class="line">61</span>
+<span class="line">62</span>
+<span class="line">63</span>
+<span class="line">64</span>
+<span class="line">65</span>
+<span class="line">66</span>
+<span class="line">67</span>
+<span class="line">68</span>
+<span class="line">69</span>
+<span class="line">70</span>
+<span class="line">71</span>
+<span class="line">72</span>
+<span class="line">73</span>
+<span class="line">74</span>
+<span class="line">75</span>
+<span class="line">76</span>
+<span class="line">77</span>
+<span class="line">78</span>
+<span class="line">79</span>
+<span class="line">80</span>
+<span class="line">81</span>
+<span class="line">82</span>
+<span class="line">83</span>
+<span class="line">84</span>
+<span class="line">85</span>
+<span class="line">86</span>
+<span class="line">87</span>
+<span class="line">88</span>
+<span class="line">89</span>
+<span class="line">90</span>
+<span class="line">91</span>
+<span class="line">92</span>
+<span class="line">93</span>
+<span class="line">94</span>
+<span class="line">95</span>
+<span class="line">96</span>
+<span class="line">97</span>
+<span class="line">98</span>
+<span class="line">99</span>
+<span class="line">100</span>
+<span class="line">101</span>
+<span class="line">102</span>
+<span class="line">103</span>
+<span class="line">104</span>
+<span class="line">105</span>
+<span class="line">106</span>
+<span class="line">107</span>
+<span class="line">108</span>
+<span class="line">109</span>
+<span class="line">110</span>
+<span class="line">111</span>
+<span class="line">112</span>
+<span class="line">113</span>
+<span class="line">114</span>
+<span class="line">115</span>
+<span class="line">116</span>
+<span class="line">117</span>
+<span class="line">118</span>
+<span class="line">119</span>
+<span class="line">120</span>
+<span class="line">121</span>
+<span class="line">122</span>
+<span class="line">123</span>
+<span class="line">124</span>
+<span class="line">125</span>
+<span class="line">126</span>
+<span class="line">127</span>
+<span class="line">128</span>
+<span class="line">129</span>
+<span class="line">130</span>
+<span class="line">131</span>
+<span class="line">132</span>
+<span class="line">133</span>
+<span class="line">134</span>
+<span class="line">135</span>
+<span class="line">136</span>
+<span class="line">137</span>
+<span class="line">138</span>
+<span class="line">139</span>
+<span class="line">140</span>
+<span class="line">141</span>
+<span class="line">142</span>
+<span class="line">143</span>
+<span class="line">144</span>
+<span class="line">145</span>
+<span class="line">146</span>
+<span class="line">147</span>
+<span class="line">148</span>
+<span class="line">149</span>
+<span class="line">150</span>
+<span class="line">151</span>
+<span class="line">152</span>
+<span class="line">153</span>
+<span class="line">154</span>
+<span class="line">155</span>
+<span class="line">156</span>
+<span class="line">157</span>
+<span class="line">158</span>
+<span class="line">159</span>
+<span class="line">160</span>
+<span class="line">161</span>
+<span class="line">162</span>
+<span class="line">163</span>
+<span class="line">164</span>
+<span class="line">165</span>
+<span class="line">166</span>
+<span class="line">167</span>
+<span class="line">168</span>
+<span class="line">169</span>
+<span class="line">170</span>
+<span class="line">171</span>
+<span class="line">172</span>
+<span class="line">173</span>
+<span class="line">174</span>
+<span class="line">175</span>
+<span class="line">176</span>
+<span class="line">177</span>
+<span class="line">178</span>
+<span class="line">179</span>
+<span class="line">180</span>
+<span class="line">181</span>
+<span class="line">182</span>
+<span class="line">183</span>
+<span class="line">184</span>
+<span class="line">185</span>
+<span class="line">186</span>
+<span class="line">187</span>
+<span class="line">188</span>
+<span class="line">189</span>
+<span class="line">190</span>
+<span class="line">191</span>
+<span class="line">192</span>
+<span class="line">193</span>
+<span class="line">194</span>
+<span class="line">195</span>
+<span class="line">196</span>
+<span class="line">197</span>
+<span class="line">198</span>
+<span class="line">199</span>
+<span class="line">200</span>
+<span class="line">201</span>
+<span class="line">202</span>
+<span class="line">203</span>
+<span class="line">204</span>
+<span class="line">205</span>
+<span class="line">206</span>
+<span class="line">207</span>
+<span class="line">208</span>
+<span class="line">209</span>
+<span class="line">210</span>
+<span class="line">211</span>
+<span class="line">212</span>
+<span class="line">213</span>
+<span class="line">214</span>
+<span class="line">215</span>
+<span class="line">216</span>
+<span class="line">217</span>
+<span class="line">218</span>
+<span class="line">219</span>
+<span class="line">220</span>
+<span class="line">221</span>
+<span class="line">222</span>
+<span class="line">223</span>
+<span class="line">224</span>
+<span class="line">225</span>
+<span class="line">226</span>
+<span class="line">227</span>
+<span class="line">228</span>
+<span class="line">229</span>
+<span class="line">230</span>
+<span class="line">231</span>
+<span class="line">232</span>
+<span class="line">233</span>
+<span class="line">234</span>
+<span class="line">235</span>
+<span class="line">236</span>
+<span class="line">237</span>
+<span class="line">238</span>
+<span class="line">239</span>
+<span class="line">240</span>
+<span class="line">241</span>
+<span class="line">242</span>
+<span class="line">243</span>
+<span class="line">244</span>
+<span class="line">245</span>
+<span class="line">246</span>
+<span class="line">247</span>
+<span class="line">248</span>
+<span class="line">249</span>
+<span class="line">250</span>
+<span class="line">251</span>
+<span class="line">252</span>
+<span class="line">253</span>
+<span class="line">254</span>
+<span class="line">255</span>
+<span class="line">256</span>
+<span class="line">257</span>
+<span class="line">258</span>
+<span class="line">259</span>
+<span class="line">260</span>
+<span class="line">261</span>
+<span class="line">262</span>
+<span class="line">263</span>
+<span class="line">264</span>
+<span class="line">265</span>
+<span class="line">266</span>
+<span class="line">267</span>
+<span class="line">268</span>
+<span class="line">269</span>
+<span class="line">270</span>
+<span class="line">271</span>
+<span class="line">272</span>
+<span class="line">273</span>
+<span class="line">274</span>
+<span class="line">275</span>
+<span class="line">276</span>
+<span class="line">277</span>
+<span class="line">278</span>
+<span class="line">279</span>
+<span class="line">280</span>
+<span class="line">281</span>
+<span class="line">282</span>
+<span class="line">283</span>
+<span class="line">284</span>
+<span class="line">285</span>
+<span class="line">286</span>
+<span class="line">287</span>
+<span class="line">288</span>
+<span class="line">289</span>
+<span class="line">290</span>
+<span class="line">291</span>
+<span class="line">292</span>
+<span class="line">293</span>
+<span class="line">294</span>
+<span class="line">295</span>
+<span class="line">296</span>
+<span class="line">297</span>
+<span class="line">298</span>
+<span class="line">299</span>
+<span class="line">300</span>
+<span class="line">301</span>
+<span class="line">302</span>
+<span class="line">303</span>
+<span class="line">304</span>
+<span class="line">305</span>
+<span class="line">306</span>
+<span class="line">307</span>
+<span class="line">308</span>
+<span class="line">309</span>
+<span class="line">310</span>
+<span class="line">311</span>
+<span class="line">312</span>
+<span class="line">313</span>
+<span class="line">314</span>
+<span class="line">315</span>
+<span class="line">316</span>
+<span class="line">317</span>
+<span class="line">318</span>
+<span class="line">319</span>
+<span class="line">320</span>
+<span class="line">321</span>
+<span class="line">322</span>
+<span class="line">323</span>
+<span class="line">324</span>
+<span class="line">325</span>
+<span class="line">326</span>
+<span class="line">327</span>
+<span class="line">328</span>
+<span class="line">329</span>
+<span class="line">330</span>
+<span class="line">331</span>
+<span class="line">332</span>
+<span class="line">333</span>
+<span class="line">334</span>
+<span class="line">335</span>
+<span class="line">336</span>
+<span class="line">337</span>
+<span class="line">338</span>
+<span class="line">339</span>
+<span class="line">340</span>
+<span class="line">341</span>
+<span class="line">342</span>
+<span class="line">343</span>
+<span class="line">344</span>
+<span class="line">345</span>
+<span class="line">346</span>
+<span class="line">347</span>
+<span class="line">348</span>
+<span class="line">349</span>
+<span class="line">350</span>
+<span class="line">351</span>
+<span class="line">352</span>
+<span class="line">353</span>
+<span class="line">354</span>
+<span class="line">355</span>
+<span class="line">356</span>
+<span class="line">357</span>
+<span class="line">358</span>
+<span class="line">359</span>
+<span class="line">360</span>
+<span class="line">361</span>
+<span class="line">362</span>
+<span class="line">363</span>
+<span class="line">364</span>
+<span class="line">365</span>
+<span class="line">366</span>
+<span class="line">367</span>
+<span class="line">368</span>
+<span class="line">369</span>
+<span class="line">370</span>
+<span class="line">371</span>
+<span class="line">372</span>
+<span class="line">373</span>
+<span class="line">374</span>
+<span class="line">375</span>
+<span class="line">376</span>
+<span class="line">377</span>
+<span class="line">378</span>
+<span class="line">379</span>
+<span class="line">380</span>
+<span class="line">381</span>
+<span class="line">382</span>
+<span class="line">383</span>
+<span class="line">384</span>
+<span class="line">385</span>
+<span class="line">386</span>
+<span class="line">387</span>
+<span class="line">388</span>
+<span class="line">389</span>
+<span class="line">390</span>
+<span class="line">391</span>
+<span class="line">392</span>
+<span class="line">393</span>
+<span class="line">394</span>
+<span class="line">395</span>
+<span class="line">396</span>
+<span class="line">397</span>
+<span class="line">398</span>
+<span class="line">399</span>
+<span class="line">400</span>
+<span class="line">401</span>
+<span class="line">402</span>
+<span class="line">403</span>
+</pre></td><td class="code"><pre><span class="line"><span class="selector-tag">body</span> &#123;</span>
+<span class="line">  <span class="attribute">font-family</span>: Helvetica, <span class="string">"微软雅黑"</span>, arial, sans-serif;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">14px</span>;</span>
+<span class="line">  <span class="attribute">line-height</span>: <span class="number">1.6</span>;</span>
+<span class="line">  <span class="attribute">padding-top</span>: <span class="number">10px</span>;</span>
+<span class="line">  <span class="attribute">padding-bottom</span>: <span class="number">10px</span>;</span>
+<span class="line">  <span class="attribute">background-color</span>: white;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">30px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">body</span> &gt; *<span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span> <span class="meta">!important</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">body</span> &gt; *<span class="selector-pseudo">:last-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-bottom</span>: <span class="number">0</span> <span class="meta">!important</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">a</span> &#123;</span>
+<span class="line">  <span class="attribute">color</span>: <span class="number">#4183C4</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">a</span><span class="selector-class">.absent</span> &#123;</span>
+<span class="line">  <span class="attribute">color</span>: <span class="number">#cc0000</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">a</span><span class="selector-class">.anchor</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">padding-left</span>: <span class="number">30px</span>;</span>
+<span class="line">  <span class="attribute">margin-left</span>: -<span class="number">30px</span>;</span>
+<span class="line">  <span class="attribute">cursor</span>: pointer;</span>
+<span class="line">  <span class="attribute">position</span>: absolute;</span>
+<span class="line">  <span class="attribute">top</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">left</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">bottom</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h1</span>, <span class="selector-tag">h2</span>, <span class="selector-tag">h3</span>, <span class="selector-tag">h4</span>, <span class="selector-tag">h5</span>, <span class="selector-tag">h6</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">20px</span> <span class="number">0</span> <span class="number">10px</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">font-weight</span>: bold;</span>
+<span class="line">  <span class="attribute">-webkit-font-smoothing</span>: antialiased;</span>
+<span class="line">  <span class="attribute">cursor</span>: text;</span>
+<span class="line">  <span class="attribute">position</span>: relative;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h1</span><span class="selector-pseudo">:hover</span> <span class="selector-tag">a</span><span class="selector-class">.anchor</span>, </span>
+<span class="line"><span class="selector-tag">h2</span><span class="selector-pseudo">:hover</span> <span class="selector-tag">a</span><span class="selector-class">.anchor</span>, </span>
+<span class="line"><span class="selector-tag">h3</span><span class="selector-pseudo">:hover</span> <span class="selector-tag">a</span><span class="selector-class">.anchor</span>, </span>
+<span class="line"><span class="selector-tag">h4</span><span class="selector-pseudo">:hover</span> <span class="selector-tag">a</span><span class="selector-class">.anchor</span>, </span>
+<span class="line"><span class="selector-tag">h5</span><span class="selector-pseudo">:hover</span> <span class="selector-tag">a</span><span class="selector-class">.anchor</span>, </span>
+<span class="line"><span class="selector-tag">h6</span><span class="selector-pseudo">:hover</span> <span class="selector-tag">a</span><span class="selector-class">.anchor</span> &#123;</span>
+<span class="line">  <span class="attribute">background</span>: <span class="built_in">url</span>(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAA09pVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMy1jMDExIDY2LjE0NTY2MSwgMjAxMi8wMi8wNi0xNDo1NjoyNyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNiAoMTMuMCAyMDEyMDMwNS5tLjQxNSAyMDEyLzAzLzA1OjIxOjAwOjAwKSAgKE1hY2ludG9zaCkiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OUM2NjlDQjI4ODBGMTFFMTg1ODlEODNERDJBRjUwQTQiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OUM2NjlDQjM4ODBGMTFFMTg1ODlEODNERDJBRjUwQTQiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo5QzY2OUNCMDg4MEYxMUUxODU4OUQ4M0REMkFGNTBBNCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo5QzY2OUNCMTg4MEYxMUUxODU4OUQ4M0REMkFGNTBBNCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PsQhXeAAAABfSURBVHjaYvz//z8DJYCRUgMYQAbAMBQIAvEqkBQWXI6sHqwHiwG70TTBxGaiWwjCTGgOUgJiF1J8wMRAIUA34B4Q76HUBelAfJYSA0CuMIEaRP8wGIkGMA54bgQIMACAmkXJi0hKJQAAAABJRU5ErkJggg==) no-repeat <span class="number">10px</span> center;</span>
+<span class="line">  <span class="attribute">text-decoration</span>: none;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h1</span> <span class="selector-tag">tt</span>, <span class="selector-tag">h1</span> <span class="selector-tag">code</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: inherit;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h2</span> <span class="selector-tag">tt</span>, <span class="selector-tag">h2</span> <span class="selector-tag">code</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: inherit;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h3</span> <span class="selector-tag">tt</span>, <span class="selector-tag">h3</span> <span class="selector-tag">code</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: inherit;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h4</span> <span class="selector-tag">tt</span>, <span class="selector-tag">h4</span> <span class="selector-tag">code</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: inherit;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h5</span> <span class="selector-tag">tt</span>, <span class="selector-tag">h5</span> <span class="selector-tag">code</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: inherit;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h6</span> <span class="selector-tag">tt</span>, <span class="selector-tag">h6</span> <span class="selector-tag">code</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: inherit;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h1</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">28px</span>;</span>
+<span class="line">  <span class="attribute">color</span>: black;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h2</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">24px</span>;</span>
+<span class="line">  <span class="attribute">border-bottom</span>: <span class="number">1px</span> solid <span class="number">#cccccc</span>;</span>
+<span class="line">  <span class="attribute">color</span>: black;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h3</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">18px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h4</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">16px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h5</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">14px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h6</span> &#123;</span>
+<span class="line">  <span class="attribute">color</span>: <span class="number">#777777</span>;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">14px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">p</span>, <span class="selector-tag">blockquote</span>, <span class="selector-tag">ul</span>, <span class="selector-tag">ol</span>, <span class="selector-tag">dl</span>, <span class="selector-tag">li</span>, <span class="selector-tag">table</span>, <span class="selector-tag">pre</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">5px</span> <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">hr</span> &#123;</span>
+<span class="line">  <span class="attribute">background</span>: transparent <span class="built_in">url</span>(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAAECAYAAACtBE5DAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyJpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuMC1jMDYwIDYxLjEzNDc3NywgMjAxMC8wMi8xMi0xNzozMjowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENTNSBNYWNpbnRvc2giIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6OENDRjNBN0E2NTZBMTFFMEI3QjRBODM4NzJDMjlGNDgiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6OENDRjNBN0I2NTZBMTFFMEI3QjRBODM4NzJDMjlGNDgiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDo4Q0NGM0E3ODY1NkExMUUwQjdCNEE4Mzg3MkMyOUY0OCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDo4Q0NGM0E3OTY1NkExMUUwQjdCNEE4Mzg3MkMyOUY0OCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/PqqezsUAAAAfSURBVHjaYmRABcYwBiM2QSA4y4hNEKYDQxAEAAIMAHNGAzhkPOlYAAAAAElFTkSuQmCC) repeat-x <span class="number">0</span> <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">border</span>: <span class="number">0</span> none;</span>
+<span class="line">  <span class="attribute">color</span>: <span class="number">#cccccc</span>;</span>
+<span class="line">  <span class="attribute">height</span>: <span class="number">4px</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">body</span> &gt; <span class="selector-tag">h2</span><span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">body</span> &gt; <span class="selector-tag">h1</span><span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">body</span> &gt; <span class="selector-tag">h1</span><span class="selector-pseudo">:first-child</span> + <span class="selector-tag">h2</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">body</span> &gt; <span class="selector-tag">h3</span><span class="selector-pseudo">:first-child</span>, <span class="selector-tag">body</span> &gt; <span class="selector-tag">h4</span><span class="selector-pseudo">:first-child</span>, <span class="selector-tag">body</span> &gt; <span class="selector-tag">h5</span><span class="selector-pseudo">:first-child</span>, <span class="selector-tag">body</span> &gt; <span class="selector-tag">h6</span><span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">a</span><span class="selector-pseudo">:first-child</span> <span class="selector-tag">h1</span>, <span class="selector-tag">a</span><span class="selector-pseudo">:first-child</span> <span class="selector-tag">h2</span>, <span class="selector-tag">a</span><span class="selector-pseudo">:first-child</span> <span class="selector-tag">h3</span>, <span class="selector-tag">a</span><span class="selector-pseudo">:first-child</span> <span class="selector-tag">h4</span>, <span class="selector-tag">a</span><span class="selector-pseudo">:first-child</span> <span class="selector-tag">h5</span>, <span class="selector-tag">a</span><span class="selector-pseudo">:first-child</span> <span class="selector-tag">h6</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">h1</span> <span class="selector-tag">p</span>, <span class="selector-tag">h2</span> <span class="selector-tag">p</span>, <span class="selector-tag">h3</span> <span class="selector-tag">p</span>, <span class="selector-tag">h4</span> <span class="selector-tag">p</span>, <span class="selector-tag">h5</span> <span class="selector-tag">p</span>, <span class="selector-tag">h6</span> <span class="selector-tag">p</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">li</span> <span class="selector-tag">p</span><span class="selector-class">.first</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: inline-block;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">li</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">ul</span>, <span class="selector-tag">ol</span> &#123;</span>
+<span class="line">  <span class="attribute">padding-left</span>: <span class="number">30px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">ul</span> <span class="selector-pseudo">:first-child</span>, <span class="selector-tag">ol</span> <span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> &#123;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> <span class="selector-tag">dt</span> &#123;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">14px</span>;</span>
+<span class="line">  <span class="attribute">font-weight</span>: bold;</span>
+<span class="line">  <span class="attribute">font-style</span>: italic;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">15px</span> <span class="number">0</span> <span class="number">5px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> <span class="selector-tag">dt</span><span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> <span class="selector-tag">dt</span> &gt; <span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> <span class="selector-tag">dt</span> &gt; <span class="selector-pseudo">:last-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-bottom</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> <span class="selector-tag">dd</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span> <span class="number">0</span> <span class="number">15px</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span> <span class="number">15px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> <span class="selector-tag">dd</span> &gt; <span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">dl</span> <span class="selector-tag">dd</span> &gt; <span class="selector-pseudo">:last-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-bottom</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">blockquote</span> &#123;</span>
+<span class="line">  <span class="attribute">border-left</span>: <span class="number">4px</span> solid <span class="number">#dddddd</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span> <span class="number">15px</span>;</span>
+<span class="line">  <span class="attribute">color</span>: <span class="number">#777777</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">blockquote</span> &gt; <span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">blockquote</span> &gt; <span class="selector-pseudo">:last-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-bottom</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">table</span> &#123;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">border-collapse</span>: collapse;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">table</span> <span class="selector-tag">tr</span> &#123;</span>
+<span class="line">  <span class="attribute">border-top</span>: <span class="number">1px</span> solid <span class="number">#cccccc</span>;</span>
+<span class="line">  <span class="attribute">background-color</span>: white;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">table</span> <span class="selector-tag">tr</span><span class="selector-pseudo">:nth-child(2n)</span> &#123;</span>
+<span class="line">  <span class="attribute">background-color</span>: <span class="number">#f8f8f8</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">table</span> <span class="selector-tag">tr</span> <span class="selector-tag">th</span> &#123;</span>
+<span class="line">  <span class="attribute">font-weight</span>: bold;</span>
+<span class="line">  <span class="attribute">border</span>: <span class="number">1px</span> solid <span class="number">#cccccc</span>;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">6px</span> <span class="number">13px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">table</span> <span class="selector-tag">tr</span> <span class="selector-tag">td</span> &#123;</span>
+<span class="line">  <span class="attribute">border</span>: <span class="number">1px</span> solid <span class="number">#cccccc</span>;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">6px</span> <span class="number">13px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">table</span> <span class="selector-tag">tr</span> <span class="selector-tag">th</span> <span class="selector-pseudo">:first-child</span>, <span class="selector-tag">table</span> <span class="selector-tag">tr</span> <span class="selector-tag">td</span> <span class="selector-pseudo">:first-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-top</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">table</span> <span class="selector-tag">tr</span> <span class="selector-tag">th</span> <span class="selector-pseudo">:last-child</span>, <span class="selector-tag">table</span> <span class="selector-tag">tr</span> <span class="selector-tag">td</span> <span class="selector-pseudo">:last-child</span> &#123;</span>
+<span class="line">  <span class="attribute">margin-bottom</span>: <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">img</span> &#123;</span>
+<span class="line">  <span class="attribute">max-width</span>: <span class="number">100%</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.frame</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.frame</span> &gt; <span class="selector-tag">span</span> &#123;</span>
+<span class="line">  <span class="attribute">border</span>: <span class="number">1px</span> solid <span class="number">#dddddd</span>;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">float</span>: left;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">13px</span> <span class="number">0</span> <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">7px</span>;</span>
+<span class="line">  <span class="attribute">width</span>: auto;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.frame</span> <span class="selector-tag">span</span> <span class="selector-tag">img</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">float</span>: left;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.frame</span> <span class="selector-tag">span</span> <span class="selector-tag">span</span> &#123;</span>
+<span class="line">  <span class="attribute">clear</span>: both;</span>
+<span class="line">  <span class="attribute">color</span>: <span class="number">#333333</span>;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">5px</span> <span class="number">0</span> <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.align-center</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">clear</span>: both;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.align-center</span> &gt; <span class="selector-tag">span</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">13px</span> auto <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">text-align</span>: center;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.align-center</span> <span class="selector-tag">span</span> <span class="selector-tag">img</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span> auto;</span>
+<span class="line">  <span class="attribute">text-align</span>: center;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.align-right</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">clear</span>: both;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.align-right</span> &gt; <span class="selector-tag">span</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">13px</span> <span class="number">0</span> <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">text-align</span>: right;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.align-right</span> <span class="selector-tag">span</span> <span class="selector-tag">img</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">text-align</span>: right;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.float-left</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">margin-right</span>: <span class="number">13px</span>;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">float</span>: left;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.float-left</span> <span class="selector-tag">span</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">13px</span> <span class="number">0</span> <span class="number">0</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.float-right</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">margin-left</span>: <span class="number">13px</span>;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">float</span>: right;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">span</span><span class="selector-class">.float-right</span> &gt; <span class="selector-tag">span</span> &#123;</span>
+<span class="line">  <span class="attribute">display</span>: block;</span>
+<span class="line">  <span class="attribute">overflow</span>: hidden;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">13px</span> auto <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">text-align</span>: right;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">code</span>, <span class="selector-tag">tt</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span> <span class="number">2px</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span> <span class="number">5px</span>;</span>
+<span class="line">  <span class="attribute">white-space</span>: nowrap;</span>
+<span class="line">  <span class="attribute">border</span>: <span class="number">1px</span> solid <span class="number">#eaeaea</span>;</span>
+<span class="line">  <span class="attribute">background-color</span>: <span class="number">#f8f8f8</span>;</span>
+<span class="line">  <span class="attribute">border-radius</span>: <span class="number">3px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">pre</span> <span class="selector-tag">code</span> &#123;</span>
+<span class="line">  <span class="attribute">margin</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">0</span>;</span>
+<span class="line">  <span class="attribute">white-space</span>: pre;</span>
+<span class="line">  <span class="attribute">border</span>: none;</span>
+<span class="line">  <span class="attribute">background</span>: transparent;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-class">.highlight</span> <span class="selector-tag">pre</span> &#123;</span>
+<span class="line">  <span class="attribute">background-color</span>: <span class="number">#f8f8f8</span>;</span>
+<span class="line">  <span class="attribute">border</span>: <span class="number">1px</span> solid <span class="number">#cccccc</span>;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">13px</span>;</span>
+<span class="line">  <span class="attribute">line-height</span>: <span class="number">19px</span>;</span>
+<span class="line">  <span class="attribute">overflow</span>: auto;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">6px</span> <span class="number">10px</span>;</span>
+<span class="line">  <span class="attribute">border-radius</span>: <span class="number">3px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">pre</span> &#123;</span>
+<span class="line">  <span class="attribute">background-color</span>: <span class="number">#f8f8f8</span>;</span>
+<span class="line">  <span class="attribute">border</span>: <span class="number">1px</span> solid <span class="number">#cccccc</span>;</span>
+<span class="line">  <span class="attribute">font-size</span>: <span class="number">13px</span>;</span>
+<span class="line">  <span class="attribute">line-height</span>: <span class="number">19px</span>;</span>
+<span class="line">  <span class="attribute">overflow</span>: auto;</span>
+<span class="line">  <span class="attribute">padding</span>: <span class="number">6px</span> <span class="number">10px</span>;</span>
+<span class="line">  <span class="attribute">border-radius</span>: <span class="number">3px</span>;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="selector-tag">pre</span> <span class="selector-tag">code</span>, <span class="selector-tag">pre</span> <span class="selector-tag">tt</span> &#123;</span>
+<span class="line">  <span class="attribute">background-color</span>: transparent;</span>
+<span class="line">  <span class="attribute">border</span>: none;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line">@<span class="keyword">media</span> screen and (min-width: <span class="number">914px</span>) &#123;</span>
+<span class="line">  <span class="selector-tag">body</span> &#123;</span>
+<span class="line">    <span class="attribute">width</span>: <span class="number">854px</span>;</span>
+<span class="line">    <span class="attribute">margin</span>: <span class="number">0</span> auto;</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line">@<span class="keyword">media</span> print &#123;</span>
+<span class="line">  <span class="selector-tag">table</span>, <span class="selector-tag">pre</span> &#123;</span>
+<span class="line">    <span class="attribute">page-break-inside</span>: avoid;</span>
+<span class="line">  &#125;</span>
+<span class="line"></span>
+<span class="line">  <span class="selector-tag">pre</span> &#123;</span>
+<span class="line">    <span class="attribute">word-wrap</span>: break-word;</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;一直觉得在 webstrom 里面看 markdown 是一种折磨，尤其是有 table 的情况下，很不爽！！！&lt;/p&gt;&lt;p&gt;今天突然发现有一个设置项可以自定义 markdown 的样式，&lt;/p&gt;&lt;p&gt;&lt;img src=&quot;../images/webstorm-md-css-
+    
+    </summary>
+    
+      <category term="WebStorm" scheme="http://ochukai.me/categories/webstorm/"/>
+    
+    
+      <category term="markdown" scheme="http://ochukai.me/tags/markdown/"/>
+    
+      <category term="webstrom" scheme="http://ochukai.me/tags/webstrom/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>JavaScript 中的 Decorator</title>
+    <link href="http://ochukai.me/decorator-in-js/"/>
+    <id>http://ochukai.me/decorator-in-js/</id>
+    <published>2016-12-21T01:33:38.000Z</published>
+    <updated>2017-04-07T09:12:17.073Z</updated>
+    
+    <content type="html"><![CDATA[<p>昨天在看一个拖拽库的时候，遇到了这么一段代码，感觉很有意思：<br></p><figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+<span class="line">12</span>
+</pre></td><td class="code"><pre><span class="line">@sortable</span>
+<span class="line"><span class="class"><span class="keyword">class</span> <span class="title">DemoHOCItem</span> <span class="keyword">extends</span> <span class="title">React</span>.<span class="title">Component</span> </span>&#123;</span>
+<span class="line"></span>
+<span class="line">  render() &#123;</span>
+<span class="line">    <span class="keyword">return</span> (</span>
+<span class="line">      <span class="xml"><span class="tag">&lt;<span class="name">div</span> &#123; <span class="attr">...this.props</span> &#125;&gt;</span></span>
+<span class="line">        &#123; this.props.children &#125;</span>
+<span class="line">      <span class="tag">&lt;/<span class="name">div</span>&gt;</span></span></span>
+<span class="line">    );</span>
+<span class="line">  &#125;</span>
+<span class="line">  </span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><p></p><p>查了一下之后发现这是 es7 的新语法，叫 <a href="https://github.com/wycats/javascript-decorators" target="_blank" rel="external">Decorator</a>。</p><h2 id="语法"><a href="#语法" class="headerlink" title="语法"></a>语法</h2><p>如果要定义一个 Decorator 的话，不难，其实每一个 decorator 就是一个 function，有三个参数，像这样</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+</pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> log = <span class="function">(<span class="params">target, name, descriptor</span>) =&gt;</span> &#123;</span>
+<span class="line">  <span class="built_in">console</span>.log(target, name, descriptor);</span>
+<span class="line"></span>
+<span class="line">  <span class="keyword">const</span> method = descriptor.value;</span>
+<span class="line">  descriptor.value = <span class="function">(<span class="params">...args</span>) =&gt;</span> &#123;</span>
+<span class="line">    logger.info(<span class="string">`before function execute: <span class="subst">$&#123;name&#125;</span>(<span class="subst">$&#123;args&#125;</span>) = ?`</span>);</span>
+<span class="line">    <span class="keyword">return</span> method.apply(target, args);</span>
+<span class="line">  &#125;</span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><p>三个参数还是比较好理解的</p><p>然后要用这个 decorator 的时候</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+<span class="line">6</span>
+<span class="line">7</span>
+<span class="line">8</span>
+<span class="line">9</span>
+<span class="line">10</span>
+<span class="line">11</span>
+</pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Example</span> </span>&#123;</span>
+<span class="line"></span>
+<span class="line">  @log</span>
+<span class="line">  add(a, b) &#123;</span>
+<span class="line">    <span class="keyword">return</span> a + b;</span>
+<span class="line">  &#125;</span>
+<span class="line">   </span>
+<span class="line">&#125;</span>
+<span class="line"></span>
+<span class="line"><span class="keyword">let</span> my = <span class="keyword">new</span> Example();</span>
+<span class="line">my.add(<span class="number">2</span>, <span class="number">3</span>);</span>
+</pre></td></tr></table></figure><p>这好像跟 Java 的 Annotation 形式差不多。 但是功能却跟 Python 的 Decorator 一样。</p><p>下面是运行时的输出</p><p><img src="../images/decorator-1.png" alt="正常"></p><p>所以呢，decorator 的三个参数分别是</p><ol><li>target 目标方法所在的类</li><li>name 方法名</li><li>descriptor 该方法的一些描述， 其中 <code>value</code> 就是方法本身，这一点在上一个例子中已经看到了。</li></ol><h2 id="用在-class-上面"><a href="#用在-class-上面" class="headerlink" title="用在 class 上面"></a>用在 class 上面</h2><p>因为我最开始见到 decorator 是看到</p><figure class="highlight jsx"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+</pre></td><td class="code"><pre><span class="line">@sortable</span>
+<span class="line"><span class="class"><span class="keyword">class</span> <span class="title">DemoHOCItem</span> <span class="keyword">extends</span> <span class="title">React</span>.<span class="title">Component</span> </span>&#123;<span class="comment">/*...*/</span>&#125;</span>
+</pre></td></tr></table></figure><p>这时， decorator 是用在 class 上面的，当 decorator 用在 class 上面的时候只有第一个参数有值，比如</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+</pre></td><td class="code"><pre><span class="line">@log</span>
+<span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Example</span> </span>&#123;</span>
+<span class="line">  add(a, b) &#123; <span class="keyword">return</span> a + b; &#125;</span>
+<span class="line">&#125;</span>
+</pre></td></tr></table></figure><p>只会输出</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+</pre></td><td class="code"><pre><span class="line"># 也就是 name, descriptor 都是 undefined</span>
+<span class="line">2016-12-21 10:28:26.617 function Example() &#123;</span>
+<span class="line">        _classCallCheck(this, Example);</span>
+<span class="line">    &#125; undefined undefined</span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;昨天在看一个拖拽库的时候，遇到了这么一段代码，感觉很有意思：&lt;br&gt;&lt;/p&gt;&lt;figure class=&quot;highlight jsx&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1&lt;/span&gt;
+&lt;span 
+    
+    </summary>
+    
+      <category term="JavaScript" scheme="http://ochukai.me/categories/javascript/"/>
+    
+    
+      <category term="js" scheme="http://ochukai.me/tags/js/"/>
+    
+      <category term="decorator" scheme="http://ochukai.me/tags/decorator/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>使用命令行更新 Win10 的密钥</title>
+    <link href="http://ochukai.me/use-terminal-to-update-win10-key/"/>
+    <id>http://ochukai.me/use-terminal-to-update-win10-key/</id>
+    <published>2016-12-16T05:02:13.000Z</published>
+    <updated>2017-04-14T01:57:38.819Z</updated>
+    
+    <content type="html"><![CDATA[<p>今天在公司装了 win10，但是点击更换密钥的时候老是卡死，然后就搜了一下发现可以用命令行设置</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span>
+<span class="line">2</span>
+<span class="line">3</span>
+<span class="line">4</span>
+<span class="line">5</span>
+</pre></td><td class="code"><pre><span class="line"># 设置密钥</span>
+<span class="line">slmgr /ipk DDCGG-9N3QJ-2B23T-C***V-XD72F</span>
+<span class="line"></span>
+<span class="line"># 检查是否已激活</span>
+<span class="line">slmgr.vbs -ato</span>
+</pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;今天在公司装了 win10，但是点击更换密钥的时候老是卡死，然后就搜了一下发现可以用命令行设置&lt;/p&gt;&lt;figure class=&quot;highlight plain&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;
+    
+    </summary>
+    
+    
+      <category term="win10" scheme="http://ochukai.me/tags/win10/"/>
+    
+      <category term="win10-key" scheme="http://ochukai.me/tags/win10-key/"/>
+    
+      <category term="slmgr" scheme="http://ochukai.me/tags/slmgr/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>webpack-dev-server 在 webstorm 中失效的问题</title>
+    <link href="http://ochukai.me/webpack-dev-server-vs-webstorm/"/>
+    <id>http://ochukai.me/webpack-dev-server-vs-webstorm/</id>
+    <published>2016-12-08T11:32:09.000Z</published>
+    <updated>2017-01-24T06:24:24.860Z</updated>
+    
+    <content type="html"><![CDATA[<p>最近换了公司 ！！！</p><p>重新用上了高大上的 win7 系统，还是熟悉的画面，然后又装上了 WebStorm，准备开始我的性福人生。</p><p>但天有不测风云，在使用一个基于 webpack 构建的项目中，每次修改代码之后，webpack-dev-server 总是不能够自动重新编译，很烦！！！</p><p>这可急坏了宝宝！！！</p><p>但是我非常冷静的分析了一下原因，可能是因为webstorm有自动保存的机制， 是不是很机智，一下子就命中了要害（但其实这中间的过程可复杂了）</p><p><img src="../images/webstorm-save-file.png" alt="正常"></p><p>如上图， 在 <code>File -&gt; Settings -&gt; Appearance &amp; Behavior -&gt; System Settings</code> 里面，取消勾选上面红框的两项。</p><p>每次修改之后，<code>ctrl + s</code> 就可以了。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;最近换了公司 ！！！&lt;/p&gt;&lt;p&gt;重新用上了高大上的 win7 系统，还是熟悉的画面，然后又装上了 WebStorm，准备开始我的性福人生。&lt;/p&gt;&lt;p&gt;但天有不测风云，在使用一个基于 webpack 构建的项目中，每次修改代码之后，webpack-dev-server 总
+    
+    </summary>
+    
+      <category term="WebStorm" scheme="http://ochukai.me/categories/webstorm/"/>
+    
+    
+      <category term="webpack-dev-server" scheme="http://ochukai.me/tags/webpack-dev-server/"/>
+    
+      <category term="webpack" scheme="http://ochukai.me/tags/webpack/"/>
+    
+      <category term="webstorm" scheme="http://ochukai.me/tags/webstorm/"/>
+    
+  </entry>
+  
+</feed>
